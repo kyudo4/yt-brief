@@ -181,6 +181,12 @@ def save_topic(conn, *, date, title, teaser, keywords, tickers, card, parent_id=
     return cur.lastrowid
 
 
+def update_topic_card(conn, topic_id: int, card: dict):
+    conn.execute("UPDATE topics SET card = ? WHERE id = ?",
+                 (json.dumps(card, ensure_ascii=False), topic_id))
+    conn.commit()
+
+
 def topics_for_date(conn, date: str) -> list[dict]:
     rows = conn.execute("SELECT * FROM topics WHERE date = ? ORDER BY id", (date,)).fetchall()
     return [_topic_row(r) for r in rows]

@@ -7,7 +7,7 @@ import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from . import analyze, db, fetch_videos, topics, transcripts
+from . import analyze, db, fetch_videos, market_data, topics, transcripts
 
 
 def main() -> int:
@@ -33,7 +33,9 @@ def main() -> int:
     topic_ids = topics.group(conn, today)
     print(f"      tematów: {len(topic_ids)}")
 
-    # TODO Etap 4: market_data + charts przy budowie kart
+    print("[6/7] twarde dane + wykresy...")
+    market_data.enrich_topics(conn, topic_ids, today)
+
     # TODO Etap 5: build_site.build(conn, today) + drafts
     # TODO Etap 6: notify.send(today)
     print("Kolejne etapy jeszcze nie podpięte (Etap 1: szkielet).")
