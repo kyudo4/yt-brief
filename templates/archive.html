@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Archiwum — yt-brief</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header>
+  <h1>🗂 Archiwum briefów</h1>
+  <nav><a href="../index.html">dzisiaj</a></nav>
+</header>
+<ul class="archive-list">
+{% for d in dates %}
+  <li><a href="{{ d.date }}.html">{{ d.date }}</a> — {{ d.count }} temat(ów){% if d.titles %}: <span class="teaser">{{ d.titles }}</span>{% endif %}</li>
+{% endfor %}
+</ul>
+<footer>yt-brief</footer>
+</body>
+</html>

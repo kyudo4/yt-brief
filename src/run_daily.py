@@ -7,7 +7,7 @@ import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from . import analyze, db, fetch_videos, market_data, topics, transcripts
+from . import analyze, build_site, db, drafts, fetch_videos, market_data, topics, transcripts
 
 
 def main() -> int:
@@ -36,9 +36,12 @@ def main() -> int:
     print("[6/7] twarde dane + wykresy...")
     market_data.enrich_topics(conn, topic_ids, today)
 
-    # TODO Etap 5: build_site.build(conn, today) + drafts
+    print("[7/7] drafty na X (Sonnet) + strona...")
+    n = drafts.generate(conn, topic_ids, today)
+    out = build_site.build(conn, today)
+    print(f"      draftów: {n}, strona: {out}")
+
     # TODO Etap 6: notify.send(today)
-    print("Kolejne etapy jeszcze nie podpięte (Etap 1: szkielet).")
     return 0
 
 

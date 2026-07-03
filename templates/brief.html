@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brief {{ date }} — yt-brief</title>
+<link rel="stylesheet" href="{{ prefix }}style.css">
+</head>
+<body>
+<header>
+  <h1>📋 Brief {{ date }}</h1>
+  <nav><a href="{{ prefix }}index.html">dzisiaj</a> · <a href="{{ prefix }}briefs/index.html">archiwum</a></nav>
+</header>
+
+{% if not topics %}
+<p class="empty">Dziś bez tematów — kanały milczały albo nic nie przeszło filtra.</p>
+{% else %}
+<section class="toc">
+  <h2>Pomysły na dziś ({{ topics|length }})</h2>
+  <ol>
+  {% for t in topics %}
+    <li><a href="#temat-{{ t.id }}">{{ t.title }}</a>
+        {% if t.card.draft_x %}<span class="badge">draft</span>{% endif %}
+        {% if t.card.aktualizacja %}<span class="badge upd">aktualizacja</span>{% endif %}
+        — <span class="teaser">{{ t.teaser }}</span></li>
+  {% endfor %}
+  </ol>
+</section>
+
+{% for t in topics %}
+{% set c = t.card %}
+<article class="topic" id="temat-{{ t.id }}">
+  <h2>{{ c.naglowek }}</h2>
+  <p class="lead">{{ c.o_co_chodzi }}</p>
+
+  {% if c.draft_x %}
+  <div class="draft">
+    <div class="draft-head">
+      <strong>✍️ Draft na X</strong>
+      <button class="copy" data-copy="draft-{{ t.id }}">Kopiuj draft</button>
+    </div>
+    <pre id="draft-{{ t.id }}">{{ c.draft_x.tekst }}</pre>
+    {% if c.draft_x.wykres %}
+    <div class="attach">
+      📎 podepnij do wpisu:
+      {% if c.draft_x.wykres.typ == 'png' %}
+        <a href="{{ prefix }}{{ c.draft_x.wykres.sciezka }}" target="_blank">{{ c.draft_x.wykres.opis }}</a>
+        <img src="{{ prefix }}{{ c.draft_x.wykres.sciezka }}" alt="{{ c.draft_x.wykres.opis }}">
+      {% elif c.draft_x.wykres.typ == 'img' %}
+        <a href="{{ c.draft_x.wykres.url }}" target="_blank">{{ c.draft_x.wykres.opis }}</a>
+        <img src="{{ c.draft_x.wykres.img }}" alt="{{ c.draft_x.wykres.opis }}">
+      {% else %}
+        <a href="{{ c.draft_x.wykres.url }}" target="_blank">{{ c.draft_x.wykres.opis }} ({{ c.draft_x.wykres.zrodlo }})</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="no-draft">bez draftu — temat zbyt suchy</p>
+  {% endif %}
+
+  <details class="cheatsheet" open>
+    <summary>🧠 Ściąga — żebyś wiedział o czym piszesz</summary>
+
+    {% if c.aktualizacja %}
+    <h3>Aktualizacja — co się zmieniło od wczoraj</h3>
+    <p>{{ c.aktualizacja }}</p>
+    {% if c.poprzednio %}<p class="meta">poprzednio: {{ c.poprzednio.tytul }} ({{ c.poprzednio.data }})</p>{% endif %}
+    {% else %}
+    <h3>Tło na chłopski rozum</h3>
+    <p>{{ c.tlo }}</p>
+    {% endif %}
+
+    <h3>Kto co mówi</h3>
+    <ul>
+    {% for k in c.kto_co_mowi %}
+      <li><a href="{{ k.url }}" target="_blank"><strong>{{ k.kanal }}</strong></a>: {{ k.stanowisko }}
+          <span class="meta">({{ k.tytul_filmu }})</span></li>
+    {% endfor %}
+    </ul>
+    {% if c.konsensus_rozjazdy %}<p><em>{{ c.konsensus_rozjazdy }}</em></p>{% endif %}
+
+    {% if c.twarde_dane %}
+    <h3>Twarde dane <span class="meta">(z API, nie z filmów)</span></h3>
+    <ul class="data">
+    {% for d in c.twarde_dane %}
+      <li><strong>{{ d.label }}:</strong> {{ d.wartosc }}
+          {% if d.zmiana_24h %}({{ d.zmiana_24h }} / 24h){% endif %}
+          {% if d.zmiana_5d %}({{ d.zmiana_5d }} / 5 dni){% endif %}
+          · <a href="{{ d.url }}" target="_blank">{{ d.zrodlo }}</a></li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if c.poziomy_wg_kanalu %}
+    <h3>Poziomy wg kanałów <span class="meta">(opinie, nie dane)</span></h3>
+    <ul class="data">
+    {% for p in c.poziomy_wg_kanalu %}
+      <li>{{ p.ticker }}: <strong>{{ p.wartosc }}</strong> — {{ p.kontekst }} <span class="meta">wg {{ p.kanal }}</span></li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if c.wykresy %}
+    <h3>Wykresy</h3>
+    <ul>
+    {% for w in c.wykresy %}
+      {% if w.typ == 'png' %}
+      <li>{{ w.opis }} <span class="meta">({{ w.zrodlo }})</span><br><img src="{{ prefix }}{{ w.sciezka }}" alt="{{ w.opis }}"></li>
+      {% else %}
+      <li><a href="{{ w.url }}" target="_blank">{{ w.opis }}</a> <span class="meta">({{ w.zrodlo }})</span></li>
+      {% endif %}
+    {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if c.wniosek %}
+    <h3>Co z tego wynika</h3>
+    <p>{{ c.wniosek }}</p>
+    {% endif %}
+  </details>
+</article>
+{% endfor %}
+{% endif %}
+
+<footer>yt-brief · liczby w kartach pochodzą z API (CoinGecko, Yahoo, alternative.me); poziomy z filmów oznaczone „wg [kanał]”</footer>
+
+<script>
+function fallbackCopy(text){
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } finally { document.body.removeChild(ta); }
+}
+document.querySelectorAll('button.copy').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var text = document.getElementById(btn.dataset.copy).innerText;
+    var done = function(){
+      var old = btn.textContent; btn.textContent = 'Skopiowano ✓';
+      setTimeout(function(){ btn.textContent = old; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function(){ fallbackCopy(text); done(); });
+    } else { fallbackCopy(text); done(); }
+  });
+});
+</script>
+</body>
+</html>
