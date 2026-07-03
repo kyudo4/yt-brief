@@ -15,6 +15,13 @@ from pathlib import Path
 DB_PATH = Path(os.environ.get("BRIEF_DB", Path(__file__).parent.parent / "data" / "brief.db"))
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS channels (
+    url              TEXT PRIMARY KEY,   -- url/handle z channels.json (klucz cache)
+    channel_id       TEXT NOT NULL,
+    uploads_playlist TEXT NOT NULL,
+    resolved_at      TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS videos (
     video_id     TEXT PRIMARY KEY,
     channel_id   TEXT NOT NULL,
@@ -75,6 +82,20 @@ def connect() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
     return conn
+
+
+# --- cache kanałów ---
+
+def get_channel_cache(conn, url: str) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM channels WHERE url = ?", (url,)).fetchone()
+
+
+def save_channel_cache(conn, url: str, channel_id: str, uploads_playlist: str):
+    conn.execute(
+        "INSERT OR REPLACE INTO channels (url, channel_id, uploads_playlist, resolved_at) VALUES (?, ?, ?, ?)",
+        (url, channel_id, uploads_playlist, _now()),
+    )
+    conn.commit()
 
 
 # --- filmy ---

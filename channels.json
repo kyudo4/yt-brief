@@ -4,18 +4,21 @@
     {
       "name": "Phil Konieczny",
       "url": "https://www.youtube.com/@PhilKonieczny",
+      "channel_id": "UCQpBmjL9kJ768fty4tbqa6Q",
       "category": "krypto",
       "weight": 2
     },
     {
       "name": "Krypto Raport",
       "url": "https://www.youtube.com/@KryptoRaport",
+      "channel_id": "UCKy4pRGNqVvpI6HrO9lo3XA",
       "category": "krypto",
       "weight": 2
     },
     {
-      "name": "Zombi Odcinki",
-      "url": "https://www.youtube.com/@ZombiOdcinki",
+      "name": "Zombie Traders",
+      "url": "https://www.youtube.com/@zombietraders",
+      "channel_id": "UC1UDWKxOKQyT1EKf4LUvqIA",
       "category": "krypto",
       "weight": 1
     }

@@ -1,6 +1,6 @@
 anthropic>=0.40
 google-api-python-client>=2.100
-youtube-transcript-api>=0.6.2
+youtube-transcript-api>=1.0
 requests>=2.31
 jinja2>=3.1
 matplotlib>=3.8
