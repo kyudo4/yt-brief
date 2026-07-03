@@ -1,0 +1,21 @@
+{
+  "_TODO": "PODMIEŃ PLACEHOLDERY na swoje prawdziwe tweety/nitki. Im więcej i im bardziej charakterystyczne, tym lepiej Sonnet złapie styl. Pole 'type': 'tweet' albo 'thread' (thread = lista tweetów).",
+  "examples": [
+    {
+      "type": "tweet",
+      "text": "PLACEHOLDER 1 — wklej tu swój prawdziwy tweet, np. krótki komentarz do sytuacji rynkowej z puentą"
+    },
+    {
+      "type": "tweet",
+      "text": "PLACEHOLDER 2 — wklej tu drugi tweet, najlepiej w innym nastroju (np. ironiczny vs analityczny)"
+    },
+    {
+      "type": "thread",
+      "tweets": [
+        "PLACEHOLDER 3a — pierwszy tweet nitki (hook)",
+        "PLACEHOLDER 3b — rozwinięcie",
+        "PLACEHOLDER 3c — puenta"
+      ]
+    }
+  ]
+}
