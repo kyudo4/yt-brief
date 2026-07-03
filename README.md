@@ -1,12 +1,20 @@
 # yt-brief
 
-Automatyczny dzienny brief z kanałów YouTube (krypto + makro + akcje): analiza
-transkrypcji przez Claude, tematy dnia z twardymi danymi z darmowych API,
-statyczna strona na GitHub Pages, powiadomienie na Telegram, drafty na X.
+Dostarczyciel pomysłów na content: zbiera ciekawostki z kanałów YouTube
+(krypto + makro), analizuje przez Claude i codziennie oddaje **gotowe drafty
+wpisów na X** z podpiętym wykresem — plus ściągę "na chłopski rozum", żeby
+wiedzieć, o czym się pisze. Strona na GitHub Pages, powiadomienie na Telegram.
 
-Codziennie o 07:00 (Europe/Warsaw) GitHub Actions robi pełny obieg:
-nowe filmy → transkrypcje → wyciągi (Haiku) → tematy dnia → karty z danymi
-rynkowymi → strona HTML → Telegram.
+Kanały są głównie anglojęzyczne — transkrypcje idą po angielsku (fallback),
+ale cała analiza, ściągi i drafty powstają po polsku.
+
+`telegram_sources.json` trzyma podane kanały t.me — jeszcze nie ingestowane
+(osobny moduł do zrobienia; publiczne kanały czyta się przez t.me/s/ bez API).
+
+Codziennie rano (cron 05:00 UTC = 07:00 latem / 06:00 zimą) GitHub Actions robi
+pełny obieg: nowe filmy → transkrypcje → wyciągi (Haiku) → tematy dnia → twarde
+dane + wykresy → drafty na X (Sonnet) → strona HTML → Telegram. Ten sam obieg
+lokalnie: `python -m src.run_daily`.
 
 ## Zasada nr 1: liczby tylko z API
 

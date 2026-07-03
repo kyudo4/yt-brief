@@ -1,0 +1,18 @@
+{
+  "_TODO": "Kanały Telegram podane przez użytkownika 2026-07-03. Obecny pipeline ingestuje TYLKO YouTube — te źródła czekają na osobny moduł (publiczne kanały t.me da się czytać przez podgląd webowy t.me/s/<nazwa> bez API). Nie podpięte do niczego.",
+  "sources": [
+    "https://t.me/dexlaboratorytgjournal",
+    "https://t.me/cryptosignals",
+    "https://t.me/hatoriinvestments",
+    "https://t.me/overdose_gems_calls",
+    "https://t.me/cryptonarratives1",
+    "https://t.me/marketsAlpha",
+    "https://t.me/popek1990crypto",
+    "https://t.me/onecryptofeed",
+    "https://t.me/infinityhedge",
+    "https://t.me/VenusQueen2",
+    "https://t.me/whale_alert_io",
+    "https://t.me/excavonews",
+    "https://t.me/top7ico"
+  ]
+}

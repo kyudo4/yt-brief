@@ -1,0 +1,48 @@
+# Dzienny brief: cron 05:00 UTC = 07:00 latem / 06:00 zimą (Europe/Warsaw).
+# Cron w Actions chodzi w UTC i nie zna DST — jeśli zimowa 06:00 przeszkadza,
+# zmień na "0 6 * * *" w październiku.
+name: daily
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Zależności
+        run: pip install -r requirements.txt
+
+      - name: Pełny obieg
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m src.run_daily
+
+      - name: Commit bazy i strony
+        run: |
+          git config user.name "yt-brief bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/brief.db docs/
+          git diff --cached --quiet && echo "brak zmian" || {
+            git commit -m "brief $(date -u +%F)"
+            git push
+          }

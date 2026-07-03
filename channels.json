@@ -1,26 +1,22 @@
 {
-  "_comment": "PRZYKŁADOWE kanały do podmiany. Możesz podać channel_id (UC...) albo url z handle (@nazwa) — fetch_videos.py sam rozwiąże handle na channel_id przez YouTube API. weight: 1-3, wyższy = kanał ważniejszy przy grupowaniu tematów.",
+  "_comment": "channel_id zweryfikowane 2026-07-03. weight: 1-3, wyższy = kanał ważniejszy przy układaniu tematów dnia. Kategorie: krypto | makro | akcje.",
   "channels": [
-    {
-      "name": "Phil Konieczny",
-      "url": "https://www.youtube.com/@PhilKonieczny",
-      "channel_id": "UCQpBmjL9kJ768fty4tbqa6Q",
-      "category": "krypto",
-      "weight": 2
-    },
-    {
-      "name": "Krypto Raport",
-      "url": "https://www.youtube.com/@KryptoRaport",
-      "channel_id": "UCKy4pRGNqVvpI6HrO9lo3XA",
-      "category": "krypto",
-      "weight": 2
-    },
-    {
-      "name": "Zombie Traders",
-      "url": "https://www.youtube.com/@zombietraders",
-      "channel_id": "UC1UDWKxOKQyT1EKf4LUvqIA",
-      "category": "krypto",
-      "weight": 1
-    }
+    { "name": "1000x Podcast", "url": "https://www.youtube.com/@1000xPodcast", "channel_id": "UCEAwYFRFUuekaEmKz4oiB_A", "category": "krypto", "weight": 1 },
+    { "name": "Alex Becker", "url": "https://www.youtube.com/@AlexBeckersChannel", "channel_id": "UCKQvGU-qtjEthINeViNbn6A", "category": "krypto", "weight": 1 },
+    { "name": "All-In Podcast", "url": "https://www.youtube.com/@allin", "channel_id": "UCESLZhusAkFfsNsApnjF_Cg", "category": "makro", "weight": 1 },
+    { "name": "Bob Loukas", "url": "https://www.youtube.com/@bobloukas3493", "channel_id": "UC0zGwzu0zzCImC1BwPuWyXQ", "category": "krypto", "weight": 1 },
+    { "name": "Macro Voices", "url": "https://www.youtube.com/@macrovoices7508", "channel_id": "UCICRehoZjq3ZtAWgRJX118A", "category": "makro", "weight": 1 },
+    { "name": "Taiki Maeda", "url": "https://www.youtube.com/@thehumblefarmer", "channel_id": "UC7B3Y1yrg4S7mmgoR-NsfxA", "category": "krypto", "weight": 1 },
+    { "name": "EllioTrades", "url": "https://www.youtube.com/@elliotrades_official", "channel_id": "UCMtJYS0PrtiUwlk6zjGDEMA", "category": "krypto", "weight": 1 },
+    { "name": "Bankless", "url": "https://www.youtube.com/@Bankless", "channel_id": "UCAl9Ld79qaZxp9JzEOwd3aA", "category": "krypto", "weight": 1 },
+    { "name": "Unchained", "url": "https://www.youtube.com/@UnchainedCrypto", "channel_id": "UCWiiMnsnw5Isc2PP1to9nNw", "category": "krypto", "weight": 1 },
+    { "name": "Thoughtful Money (Adam Taggart)", "url": "https://www.youtube.com/@adam.taggart", "channel_id": "UCjqe6xtZYTfvA4pHs0HgJsQ", "category": "makro", "weight": 1 },
+    { "name": "Forward Guidance", "url": "https://www.youtube.com/@ForwardGuidanceBW", "channel_id": "UCkrwgzhIBKccuDsi_SvZtnQ", "category": "makro", "weight": 1 },
+    { "name": "Blockworks", "url": "https://www.youtube.com/@BlockworksHQ", "channel_id": "UCgK_jxvgUZ7iJKlZUS3YvuA", "category": "krypto", "weight": 1 },
+    { "name": "0xResearch", "url": "https://www.youtube.com/@0xresearchPodcast", "channel_id": "UC4UIG0VvHi6AftF0icVebfw", "category": "krypto", "weight": 1 },
+    { "name": "The Wolf Of All Streets (Scott Melker)", "url": "https://www.youtube.com/@ScottMelker", "channel_id": "UCxIU1RFIdDpvA8VOITswQ1A", "category": "krypto", "weight": 1 },
+    { "name": "Into The Cryptoverse (Benjamin Cowen)", "url": "https://www.youtube.com/@benjaminjcowen", "channel_id": "UCRvqjQPSeaWn-uEx-w0XOIg", "category": "krypto", "weight": 1 },
+    { "name": "Steady Lads Podcast", "url": "https://www.youtube.com/@0xSteadyLads", "channel_id": "UC5K-A8n6phru-uNF6TzH5vQ", "category": "krypto", "weight": 1 },
+    { "name": "TraderXO", "url": "https://www.youtube.com/@TraderXO", "channel_id": "UC_Wcg4f22Zhf2tU8oD-LK4w", "category": "krypto", "weight": 1 }
   ]
 }
