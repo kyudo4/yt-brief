@@ -7,7 +7,7 @@ import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from . import db, fetch_videos, transcripts
+from . import analyze, db, fetch_videos, topics, transcripts
 
 
 def main() -> int:
@@ -25,7 +25,14 @@ def main() -> int:
     stats = transcripts.fetch_pending(conn)
     print(f"      {stats}")
 
-    # TODO Etap 3: analyze.run(conn) + topics.group(conn, today)
+    print("[4/7] analiza wyciągów (Haiku)...")
+    astats = analyze.run(conn)
+    print(f"      {astats}")
+
+    print("[5/7] tematy dnia...")
+    topic_ids = topics.group(conn, today)
+    print(f"      tematów: {len(topic_ids)}")
+
     # TODO Etap 4: market_data + charts przy budowie kart
     # TODO Etap 5: build_site.build(conn, today) + drafts
     # TODO Etap 6: notify.send(today)
