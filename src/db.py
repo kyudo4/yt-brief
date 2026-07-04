@@ -181,6 +181,17 @@ def save_topic(conn, *, date, title, teaser, keywords, tickers, card, parent_id=
     return cur.lastrowid
 
 
+def delete_topics_for_date(conn, date: str):
+    """Kasuje tematy danego dnia — idempotentność: ponowny run nadpisuje, nie dubluje."""
+    ids = [r["id"] for r in conn.execute("SELECT id FROM topics WHERE date = ?", (date,)).fetchall()]
+    if ids:
+        q = ",".join("?" * len(ids))
+        conn.execute(f"DELETE FROM topic_videos WHERE topic_id IN ({q})", ids)
+        conn.execute(f"DELETE FROM topics WHERE id IN ({q})", ids)
+        conn.commit()
+    return len(ids)
+
+
 def update_topic_card(conn, topic_id: int, card: dict):
     conn.execute("UPDATE topics SET card = ? WHERE id = ?",
                  (json.dumps(card, ensure_ascii=False), topic_id))

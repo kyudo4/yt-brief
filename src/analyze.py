@@ -14,12 +14,20 @@ MAX_TRANSCRIPT_CHARS = 80_000  # ~30k tokenów; Haiku ma 200k kontekstu
 EXTRACT_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["streszczenie", "tezy", "sentyment", "tickery", "slowa_kluczowe",
+    "required": ["streszczenie", "tezy", "ciekawostki", "sentyment", "tickery", "slowa_kluczowe",
                  "cytaty", "poziomy_wg_kanalu"],
     "properties": {
         "streszczenie": {"type": "string", "description": "2-3 zdania po polsku"},
         "tezy": {"type": "array", "items": {"type": "string"},
                  "description": "główne tezy/argumenty autora, max 6"},
+        "ciekawostki": {
+            "type": "array", "items": {"type": "string"},
+            "description": "Nieoczywiste, konkretne smaczki z filmu: zaskakujące fakty, unikalne dane "
+                           "lub obserwacje, kontrariańskie/mocne opinie autora, mechanizmy 'jak to naprawdę "
+                           "działa', rzeczy których nie usłyszysz w mainstreamie. Każda to samodzielny, "
+                           "konkretny kąt — NIE ogólnik typu 'rynek jest niepewny'. Max 5. Pusta lista, "
+                           "jeśli film to sama ogólna gadka bez smaczków.",
+        },
         "sentyment": {"type": "integer", "enum": [-2, -1, 0, 1, 2],
                       "description": "-2 skrajnie niedźwiedzi ... +2 skrajnie byczy"},
         "tickery": {"type": "array", "items": {"type": "string"},
@@ -62,11 +70,17 @@ SYSTEM = """Jesteś analitykiem treści finansowych. Dostajesz transkrypcję fil
 Twoje zadanie: wyciągnij strukturalny wyciąg zgodny ze schematem. Zasady:
 - Pisz po polsku, zwięźle, bez lania wody.
 - Tezy to opinie i argumenty AUTORA, nie twoje.
+- ciekawostki to serce wyciągu — wyławiaj nieoczywiste, konkretne rzeczy, które robią z filmu
+  wartościowy materiał na wpis: unikalne dane, zaskakujące mechanizmy, mocne/kontrariańskie opinie,
+  smaczki. Pomijaj oczywistości i ogólniki. Lepiej 2 mocne ciekawostki niż 5 pustych.
 - KLUCZOWE: każdą liczbę, poziom cenowy czy prognozę wypowiedzianą w filmie umieść \
 w poziomy_wg_kanalu. Liczby z transkrypcji to zawsze opinia kanału, nigdy fakt rynkowy.
 - Timestampy cytatów bierz z najbliższego markera [mm:ss] przed cytatem.
 - Tickery normalizuj do wielkich liter (BTC, ETH, MU, DXY, SPX, GOLD).
-- Auto-napisy bywają zniekształcone (np. "Bajnas" = Binance) — koryguj po sensie."""
+- Auto-napisy bywają zniekształcone, zwłaszcza nazwy własne i tickery (np. "Bajnas"=Binance,
+  "Ono"=Ondo, "Círcle"=Circle, "Hyperliquid" przekręcane). Koryguj nazwy projektów, giełd i
+  tickerów po sensie i kontekście. Nie zostawiaj literówek w nazwach własnych ani obcojęzycznych
+  wtrętów (pisz po polsku)."""
 
 
 def run(conn) -> dict:

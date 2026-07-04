@@ -1,21 +1,49 @@
 {
-  "_TODO": "PODMIEŃ PLACEHOLDERY na swoje prawdziwe tweety/nitki. Im więcej i im bardziej charakterystyczne, tym lepiej Sonnet złapie styl. Pole 'type': 'tweet' albo 'thread' (thread = lista tweetów).",
+  "_info": "Prawdziwe posty @kyudo_krypto (wklejone 2026-07-04) — wzorce stylu dla generatora draftów. Naśladuj TON i formę, nie treść.",
   "examples": [
     {
       "type": "tweet",
-      "text": "PLACEHOLDER 1 — wklej tu swój prawdziwy tweet, np. krótki komentarz do sytuacji rynkowej z puentą"
+      "text": "Zastanawiające jest, że Binance, jako globalny lider krypto przespał wdrożenie MiCA i nie ma licencji. 🤔\n\nWątpię, że tak po prostu przegapili termin.\n\nJaki może być powód?\nMają coś za uszami tak mocno, że nie dostaliby tej licencji.\nMuszą ukryć co nieco i dopiero wrócą do Europy.\n\nInnego logicznego wytłumaczenia nie ma.\nPrzecież to kawał bogatego rynku.\nNie odpuszcza się takich przychodów od tak, bo intern zapomniał papierów wysłać."
     },
     {
       "type": "tweet",
-      "text": "PLACEHOLDER 2 — wklej tu drugi tweet, najlepiej w innym nastroju (np. ironiczny vs analityczny)"
+      "text": "🟢Sprawdziłem 6 różnych strategii DCA w 2 bessach BTC.\n📢Wynik: precyzja wejścia ma coraz mniejsze znaczenie.\n\nW 2022 różnica między najlepszym a najgorszym okresem DCA wyniosła tylko około 70%.\nW 2018? Prawie 770%.\n\nJeśli ten trend się utrzyma, w kolejnej bessie timing może mieć jeszcze mniejsze znaczenie.\n\nNajlepszy historycznie okres DCA:\n🔹Dołek 2018 - grudzień.\nNajlepszy okres DCA: grudzień–styczeń (+1 775%).\n🔹Dołek 2022 - listopad.\nNajlepszy okres DCA: listopad–grudzień (+631%).\n\nCzy warto jednak czekać na idealny scenariusz, jeśli różnica może wynosić tylko kilkadziesiąt procent?\nMoim zdaniem nie."
     },
     {
-      "type": "thread",
-      "tweets": [
-        "PLACEHOLDER 3a — pierwszy tweet nitki (hook)",
-        "PLACEHOLDER 3b — rozwinięcie",
-        "PLACEHOLDER 3c — puenta"
-      ]
+      "type": "tweet",
+      "text": "Bardzo dobra rada w dobie MiCA i wzmożonej kontroli.\n\nJak wypłacacie hajs z CEXa to najpierw na swój adres i potem na kolejny CEX albo do ziomeczka.\n\nBezpieczniej jest cały czas mieć kontrolę nad adresem na który i z którego leci hajs na CEX.\n\nZaoszczędzicie sobie sporo czasu w przyszłości, na rozwiązywanie nieporozumień z giełdami."
+    },
+    {
+      "type": "tweet",
+      "text": "🚨Strategy ogłosiło duże zmiany w zarządzaniu kapitałem.\n\nNajważniejsze:\n\n• 2,55 mld USD rezerwy gotówkowej (minimum 12 miesięcy pokrycia kosztów).\n• Dywidenda STRC rośnie do 12% rocznie od 1 lipca.\n• Do 2 mld USD na buybacki (1 mld USD Digital Credit + 1 mld USD MSTR).\n• Zarząd może sprzedać do 1,25 mld USD BTC, jeśli będzie to korzystniejsze niż emisja nowych akcji."
+    },
+    {
+      "type": "tweet",
+      "text": "My tu gadu-gadu, a Tom Lee buduje maszynkę do kupowania jeszcze większej ilości $ETH 👀\n\n🟣 Czym jest $BMNP od BitMine?\n\nTo nowe akcje uprzywilejowane (preferred stock), które można porównać do $STRC od Strategy.\n\nInwestor kupuje BMNP → BitMine kupuje ETH → staking i działalność spółki pomagają finansować dywidendę.\n\nJeśli BMNP utrzyma mocną wycenę, BitMine może emitować kolejne serie preferred stock i za pozyskany kapitał kupować jeszcze więcej ETH.\n\nTo dokładnie ten sam mechanizm inżynierii finansowej, który pozwolił Strategy przez lata akumulować BTC.\n\nNowy strukturalny popyt na ETH właśnie się rodzi."
+    },
+    {
+      "type": "tweet",
+      "text": "niektórzy piszą, że alty pospadały po 85-90%, więc nie ma już za dużo miejsca na spadki\n\nsprawdźmy:\n$AAVE -85% od szczytu daje cenę ~58,5\n-90%, czyli tylko 5% mocniejszy spadek, to cena ~ 37,3\n\nzbierając więc przy poziomie -85%, ma ~ 36% gorsze wejście w token\n\nogromna różnica\n\nprocentowo od szczytów wydaje się tylko niewinne 5% niżej, ale realnie można nadal dostać ładnego rekta\n\ncierpliwości"
+    },
+    {
+      "type": "tweet",
+      "text": "$STG został przejęty przez LayerZero.\nUstalono stały kurs wymiany: 1 STG = 0.08634 ZRO.\n\nRynek kompletnie zignorował tę wycenę i odpalił klasyczny pump napędzany narracją o możliwej wojnie ofertowej oraz FOMO.\nKurs wystrzelił z okolic 0,20 USD do prawie 0,70 USD.\n\nTeraz przychodzi brutalny powrót do rzeczywistości i cena wraca w stronę wartości wynikającej z warunków przejęcia.\n\nPiękne jest to nasze krypto."
+    },
+    {
+      "type": "tweet",
+      "text": "Wygląda na to, że BTC się uspokoił i lokalny dołek jest za nami.\n\nNadmierne zalewarowanie rozładowane.\nIPO SpaceX, które ssało kapitał, już się odbyło.\n\nZapowiada się nudny boczniak, z jakimś podbiciem, by znowu ubrać ludzi w koniec bessy.\n\nPatrząc na sezonowość, kolejny czerwony okres wypada na końcówkę wakacji.\n\nBTC.D powinno powoli wspinać się do góry.\nDobrze jakby alty jeszcze trochę zjechały."
+    },
+    {
+      "type": "tweet",
+      "text": "Nie wierzę w repricingi altów, gdzie widzimy w bessie rajdy po kilkaset procent.\nSą to manipulacje albo scamy.\n\nNa następnym odbiciu nie dawajcie się nabrać na zbyt szybkie kupowanie na hossę, bo akurat \"pokazuje siłę\" jakiś alt.\n\nNic nie jest bezpieczne.\nNawet lubiany przez wszystkich $HYPE"
+    },
+    {
+      "type": "tweet",
+      "text": "Teraz BTC by zrobił psikusa, jeśli lokalny dołek będzie ok 60k.\n\nBędzie dylemat - czy jest to double bottom?\nPobije potem do jakiś 70k na odreagowaniu i zacznie się znowu wiara, że to już na pewno dołek.\n\nPo czym ubranie ludzi w hossę, nowy paradygmat i powtórka z rozrywki, rekt xD"
+    },
+    {
+      "type": "tweet",
+      "text": "Dominacja OI altów na poziomie 34%\n\nZa każdym razem, gdy podchodzi tak wysoko jest mocne czyszczenie.\n\nBTC.D soon w górę mocno.\n\nWybiją ludziom z głowy wołanie mini altszn na 5 tokenach xD"
     }
   ]
 }

@@ -40,6 +40,26 @@ DRAFT_SCHEMA = {
 
 RULES = """Piszesz drafty wpisów na X (Twitter) po polsku dla autora konta o krypto/makro/rynkach.
 
+CEL — realna wartość, nie banał (NAJWAŻNIEJSZE):
+- Sekcja "ciekawostki" to twoja amunicja: nieoczywiste fakty, unikalne dane i mocne opinie
+  wyłuskane z filmów. Oprzyj wpis na najmocniejszej z nich — to ona ma dać czytelnikowi
+  "nie wiedziałem tego". Nie rozwadniaj jej ogólnikami.
+- Każdy draft ma dać czytelnikowi coś, czego sam nie zauważył: nieoczywisty kąt,
+  mechanizm "jak to naprawdę działa", policzoną konsekwencję, ukryty powód, sprzeczność.
+- NIE streszczaj newsa ("X ogłosił Y"). Pokaż CO Z TEGO WYNIKA i czemu to ważne — jak
+  w przykładach autora: BMNP to maszynka na ETH (ten sam mechanizm co Strategy na BTC);
+  wycena STG z przejęcia vs pump na FOMO; -85% vs -90% to realnie 36% gorsze wejście.
+- Postaw własne zdanie i tezę. Sceptycyzm, konkret, wniosek. Zero suchego relacjonowania.
+- Jeśli temat to oczywistość bez kąta ("BTC spadł, na rynku strach") — zwróć pusty tekst
+  (pas). Lepiej brak wpisu niż banał.
+
+TYPY WPISU (dobierz do tematu):
+- Reakcja z kątem: wydarzenie + nieoczywisty komentarz, teza, sceptycyzm (jak większość przykładów).
+- Deep dive projektu: gdy temat to konkretny protokół/projekt z nowością (np. Ondo, Hyperliquid) —
+  wyjaśnij PROSTO jak to działa i co KONKRETNIE nowego wprowadzają, a potem CO TO ZNACZY dla rynku
+  i dla samego projektu w dłuższym dystansie (adopcja, realny popyt, konkurencja, ryzyko). To zwykle
+  nitka. Bez marketingu projektu — twoja własna, wyważona ocena, nie ulotka.
+
 STYL:
 - Ton luźny, bezpośredni, własne zdanie wprost. Zero tonu eksperta-wykładowcy, zero korpomowy.
 - Krótkie, cięte zdania. Często małe litery. Puenta zamiast wywodu.
@@ -48,16 +68,28 @@ STYL:
 - Zawsze charakter opinii. Gdy draft brzmi jak call inwestycyjny, dodaj na końcu
   "nie jest to porada inwestycyjna" (małymi literami, naturalnie).
 
+EMOJI I FORMA (jak w przykładach autora):
+- Emoji oszczędnie i akcentująco: 🚨/🟢 na start ważnej wiadomości, 🔹 lub • do
+  punktów listy konkretów, $TICKER przy tokenach, sporadyczny 🤔/👀/xD dla tonu.
+- Wyliczanki z bulletami (•/🔹) OK, gdy to realna lista faktów/liczb; nie sztuczne 1/2/3.
+
+POPRAWNOŚĆ:
+- Popraw ewidentnie przekręcone nazwy własne i tickery z materiału (Ono→Ondo, Círcle→Circle itp.).
+  Nie przepisuj literówek z auto-napisów do wpisu.
+
 ZAKAZANE:
-- emoji-spam, "🚨 BREAKING", sztywne wyliczanki 1/2/3 bez potrzeby,
+- emoji-spam (emoji w co drugim słowie), korpo-nagłówki typu "BREAKING",
 - kalki z angielskiego, ton doradcy, hasztagowanie na siłę.
 
-LICZBY — dawaj tylko gdy wpis ich POTRZEBUJE:
-- Nie wciskaj cen ani danych, jeśli wpis nie jest o liczbach (np. o regulacji,
-  przejęciu, narracji, sporze). Suchy fakt bronią się sam, cena BTC go nie ratuje.
-- Gdy już podajesz liczbę: wolno użyć TYLKO liczb z sekcji twarde_dane (z API)
-  oraz poziomów z poziomy_wg_kanalu — te drugie ZAWSZE z dopiskiem "wg [kanał]".
-- Żadnych liczb z głowy.
+LICZBY — źródło ZAWSZE jawne (żelazna zasada):
+- Tylko liczby z sekcji twarde_dane pochodzą z API (CoinGecko/Yahoo) — te i tylko te
+  możesz podać jako fakt bez zastrzeżeń.
+- KAŻDA inna liczba, dana czy konkretne twierdzenie (z ciekawostek, stanowisk_kanalow,
+  poziomy_wg_kanalu) pochodzi z wypowiedzi kanału — podawaj ją ZAWSZE z atrybucją
+  "wg [nazwa kanału]" (np. "wg 0xResearch", "wg Bankless"). Nigdy jako gołego faktu:
+  to cudze twierdzenie z filmu, nie zweryfikowana prawda. Dotyczy też procentów, kwot,
+  dat i statystyk ("akcje spadły -50% wg Bankless", nie "akcje spadły -50%").
+- Nie wciskaj liczb, jeśli wpis ich nie potrzebuje. Żadnych liczb z głowy.
 
 ZAŁĄCZNIK (wykres_id):
 - Wskaż wykres z dostepne_wykresy TYLKO jeśli bezpośrednio ilustruje treść wpisu —
@@ -110,6 +142,7 @@ def generate(conn, topic_ids: list[int], date: str) -> int:
                 for k in card.get("kto_co_mowi", [])
             ],
             "konsensus_rozjazdy": card.get("konsensus_rozjazdy"),
+            "ciekawostki": card.get("ciekawostki", []),
             "poziomy_wg_kanalu": card.get("poziomy_wg_kanalu", []),
             "twarde_dane": [
                 {k: e[k] for k in ("label", "wartosc", "zmiana_24h", "zmiana_5d", "zrodlo") if k in e}

@@ -63,7 +63,12 @@ poziomy wg kanału, wagę kanału (weight).
 
 Pogrupuj je w TEMATY DNIA — cross-kanałowo: jeśli dwa kanały mówią o tym samym, to JEDEN temat. \
 Zasady:
-- 2-6 tematów; nie twórz tematu z każdej pierdoły, ale nie sklejaj na siłę różnych spraw.
+- Wybieraj tematy będące CIEKAWOSTKĄ lub ANALIZĄ z realną wartością: nieoczywisty mechanizm, \
+zaskakujący ruch, ukryty powód, konsekwencja której inni nie widzą, sprzeczność w narracji. \
+Odrzucaj generyczne newsy bez kąta ("cena spadła", "ktoś coś ogłosił") — chyba że jest do nich \
+nieoczywisty komentarz. Priorytet: krypto, makro (stopy, ropa, dolar, inflacja), akcje.
+- 2-6 tematów; lepiej 3 mocne i nieoczywiste niż 6 płytkich. Nie twórz tematu z każdej pierdoły, \
+ale nie sklejaj na siłę różnych spraw.
 - Kanały z wyższym weight ważniejsze przy wyborze tematów.
 - Tło pisz tak, żeby wprowadzić czytelnika OD ZERA, prostym językiem.
 - W kto_co_mowi używaj DOKŁADNYCH video_id z wyciągów i timestampów z cytatów.
@@ -83,6 +88,10 @@ def group(conn, date: str) -> list[int]:
     if not extracts:
         print("  brak wyciągów do pogrupowania")
         return []
+
+    removed = db.delete_topics_for_date(conn, date)  # idempotentność: nadpisz, nie dubluj
+    if removed:
+        print(f"  (usunięto {removed} tematów z wcześniejszego runu tego dnia)")
 
     channels = _channel_weights()
     payload = [
@@ -139,6 +148,7 @@ def _build_card(t: dict, by_vid: dict, related: dict | None, date: str) -> dict:
         "nadaje_sie_na_x": t["nadaje_sie_na_x"],
         "potrzebne_dane": t["potrzebne_dane"],
         "poziomy_wg_kanalu": _collect_levels(t, by_vid),
+        "ciekawostki": _collect_facts(t, by_vid),
     }
     if related:
         card["aktualizacja"] = _update_intro(related, t)
@@ -159,6 +169,18 @@ def _collect_levels(t: dict, by_vid: dict) -> list[dict]:
             if lvl["ticker"].upper() in [x.upper() for x in t["tickery"]]:
                 levels.append({**lvl, "kanal": v["channel_name"]})
     return levels
+
+
+def _collect_facts(t: dict, by_vid: dict) -> list[dict]:
+    """Nieoczywiste ciekawostki/fakty z filmów przypiętych do tematu — materiał na draft."""
+    facts = []
+    for k in t["kto_co_mowi"]:
+        v = by_vid.get(k["video_id"])
+        if not v:
+            continue
+        for fact in v["data"].get("ciekawostki", []):
+            facts.append({"kanal": v["channel_name"], "fakt": fact})
+    return facts
 
 
 def _update_intro(related: dict, t: dict) -> str:

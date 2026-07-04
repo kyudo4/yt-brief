@@ -10,6 +10,8 @@ do właściwego momentu filmu (&t=...s).
 
 from __future__ import annotations
 
+import time
+
 from youtube_transcript_api import (
     NoTranscriptFound,
     TranscriptsDisabled,
@@ -21,6 +23,13 @@ from . import db
 
 LANGS = ["pl", "en"]
 BLOCK_S = 60
+SLEEP_BETWEEN = 6      # odstęp między filmami — YouTube rate-limituje serie żądań napisów
+
+
+def _is_ip_block(exc: Exception) -> bool:
+    """Blokada IP / rate-limit YouTube (przejściowa) — nie oznaczaj jako trwały błąd."""
+    name = type(exc).__name__
+    return "Blocked" in name or "TooManyRequests" in name or "IpBlocked" in str(exc)
 
 
 def _pick(transcript_list):
@@ -78,17 +87,26 @@ def fetch_one(video_id: str) -> tuple[str, bool, str] | None:
     return transcript.language_code, transcript.is_generated, format_snippets(fetched)
 
 
-def fetch_pending(conn) -> dict:
-    """Ściąga napisy dla wszystkich filmów o statusie 'new'."""
-    stats = {"ok": 0, "no_transcript": 0, "error": 0}
-    for v in db.videos_by_status(conn, "new"):
+def fetch_pending(conn, sleep_between: float = SLEEP_BETWEEN) -> dict:
+    """Ściąga napisy dla filmów o statusie 'new'. Throttling między żądaniami;
+    blokadę IP zostawia w kolejce (status 'new') do ponowienia w kolejnym runie."""
+    stats = {"ok": 0, "no_transcript": 0, "error": 0, "ip_block": 0}
+    pending = db.videos_by_status(conn, "new")
+    for i, v in enumerate(pending):
         vid = v["video_id"]
+        if i > 0 and sleep_between:
+            time.sleep(sleep_between)  # rozłóż żądania — nie seria strzałów
         try:
             result = fetch_one(vid)
-        except Exception as e:  # sieć, blokady IP itp. — nie wywalaj całego runu
-            print(f"  ! błąd transkrypcji {vid}: {type(e).__name__}: {e}")
-            db.set_video_status(conn, vid, "error", f"transcript: {e}")
-            stats["error"] += 1
+        except Exception as e:
+            if _is_ip_block(e):
+                # przejściowa blokada YouTube — zostaw 'new', następny run spróbuje ponownie
+                print(f"  ~ blokada IP (ponowię następnym razem): {v['title'][:55]}")
+                stats["ip_block"] += 1
+            else:
+                print(f"  ! błąd transkrypcji {vid}: {type(e).__name__}: {e}")
+                db.set_video_status(conn, vid, "error", f"transcript: {e}")
+                stats["error"] += 1
             continue
         if result is None:
             print(f"  - brak napisów: [{v['channel_name']}] {v['title'][:60]}")
