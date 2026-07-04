@@ -20,9 +20,9 @@ from googleapiclient.discovery import build
 from . import db
 
 CHANNELS_FILE = Path(__file__).parent.parent / "channels.json"
-WINDOW_HOURS = 26          # dzienny cron + 2h marginesu
+WINDOW_HOURS = 168         # ostatni tydzień; dedup w bazie i tak analizuje tylko nowe
 MIN_DURATION_S = 300       # filmy <= 5 min odpadają
-MAX_RESULTS_PER_CHANNEL = 15
+MAX_RESULTS_PER_CHANNEL = 25   # tydzień aktywnego kanału; playlistItems.list = 1 jednostka bez względu na liczbę
 
 _DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?")
 
