@@ -18,6 +18,7 @@ from pathlib import Path
 from . import db, llm
 
 STYLE_FILE = Path(__file__).parent.parent / "style_examples.json"
+PROFILE_FILE = Path(__file__).parent.parent / "style_profile.md"
 
 DRAFT_SCHEMA = {
     "type": "object",
@@ -127,8 +128,14 @@ def _style_examples() -> str:
     return "\n\nPRZYKŁADY STYLU AUTORA (naśladuj ton, nie treść):\n\n" + "\n\n===\n\n".join(parts)
 
 
+def _style_profile() -> str:
+    if PROFILE_FILE.exists():
+        return "\n\nTWÓJ GŁOS — trzymaj się tego profilu:\n\n" + PROFILE_FILE.read_text()
+    return ""
+
+
 def _system() -> str:
-    return RULES + _style_examples()
+    return RULES + _style_profile() + _style_examples()
 
 
 def _attachable(card: dict) -> list[dict]:
