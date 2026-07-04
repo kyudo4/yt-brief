@@ -1,11 +1,10 @@
-# Dzienny brief: cron 05:00 UTC = 07:00 latem / 06:00 zimą (Europe/Warsaw).
-# Cron w Actions chodzi w UTC i nie zna DST — jeśli zimowa 06:00 przeszkadza,
-# zmień na "0 6 * * *" w październiku.
+# Dzienny brief — TYLKO ręcznie (workflow_dispatch), jako fallback.
+# Cron wyłączony: IP GitHub Actions jest blokowane przez YouTube dla auto-napisów
+# (potwierdzone sondą 2026-07-04: 1/3 transkrypcji). Codzienny obieg robi lokalny
+# launchd na Macu użytkownika (jego IP działa) — patrz scripts/run_local.sh i README.
 name: daily
 
 on:
-  schedule:
-    - cron: "0 5 * * *"
   workflow_dispatch:
 
 permissions:
