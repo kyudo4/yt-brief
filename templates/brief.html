@@ -54,19 +54,20 @@
       {% endif %}
     </div>
     {% endif %}
-    {% if c.draft_x.weryfikacja %}
-    <div class="factcheck">
-      <strong>🔎 Sprawdzenie w sieci</strong>
+    {% set flagi = c.draft_x.weryfikacja | rejectattr('status', 'equalto', 'potwierdzone') | list %}
+    {% if flagi %}
+    <details class="factcheck">
+      <summary>🔎 Sprawdź przed wrzuceniem ({{ flagi|length }})</summary>
       <ul>
-      {% for u in c.draft_x.weryfikacja %}
+      {% for u in flagi %}
         <li class="fc-{{ u.status }}">
-          {% if u.status == 'rozbieznosc' %}⚠️{% elif u.status == 'potwierdzone' %}✓{% else %}❓{% endif %}
+          {% if u.status == 'rozbieznosc' %}⚠️{% else %}❓{% endif %}
           {{ u.twierdzenie }} — <strong>{{ u.wersja_z_sieci }}</strong>
           {% if u.zrodlo %}<span class="meta">({{ u.zrodlo }})</span>{% endif %}
         </li>
       {% endfor %}
       </ul>
-    </div>
+    </details>
     {% endif %}
   </div>
   {% else %}

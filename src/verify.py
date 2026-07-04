@@ -15,27 +15,26 @@ import re
 
 from . import db, llm
 
-WEB_SEARCH_TOOL = {"type": "web_search_20260209", "name": "web_search", "max_uses": 5}
+WEB_SEARCH_TOOL = {"type": "web_search_20260209", "name": "web_search", "max_uses": 4}
 MAX_CONTINUE = 3  # obsługa pause_turn przy dłuższej serii wyszukiwań
 
-SYSTEM = """Jesteś skrupulatnym fact-checkerem wpisów o krypto, makro i akcjach.
-Dostajesz draft wpisu na X oraz surowe twierdzenia z filmów, na których się opiera.
+SYSTEM = """Jesteś fact-checkerem wpisów o krypto, makro i akcjach. Dostajesz draft wpisu na X.
 
-Sprawdź w internecie (web_search) kluczowe FAKTY, LICZBY, DATY i WYDARZENIA z draftu —
-szczególnie te przypisane "wg [kanał]", bo pochodzą z nagrania i bywają przekręcone.
-NIE weryfikuj czystych opinii, prognoz ani tez ("moim zdaniem", "może spaść") — tylko
-sprawdzalne fakty. Bądź konkretny: szukaj oficjalnych źródeł, danych, wiarygodnych mediów.
+Sprawdź w internecie (web_search) TYLKO te fakty i liczby, które FAKTYCZNIE pojawiają się w treści
+tego draftu — nie sprawdzaj niczego spoza niego. Skup się na rzeczach, które mogłyby ośmieszyć autora,
+gdyby były błędne: pomylone nazwy/osoby, zła kwota, wymyślona lub przekręcona statystyka, błędna data.
+Ignoruj opinie, prognozy i tezy ("moim zdaniem", "może spaść") — tego nie da się zweryfikować.
 
-Zwróć WYŁĄCZNIE JSON (żadnego tekstu przed ani po), dokładnie w formacie:
-{"ustalenia":[{"twierdzenie":"<krótko, co sprawdzasz>","status":"potwierdzone|rozbieznosc|niepewne","wersja_z_sieci":"<co naprawdę mówią źródła; przy potwierdzeniu krótkie potwierdzenie>","zrodlo":"<domena lub nazwa źródła>"}]}
+Wybierz maksymalnie 1-3 NAJWAŻNIEJSZE sprawdzalne twierdzenia. Nie mnóż drobiazgów. Jeśli fakty się
+zgadzają albo draft to sam komentarz — zwróć {"ustalenia":[]} (nie ma o czym pisać).
 
-status:
-- "potwierdzone" — sieć potwierdza twierdzenie
-- "rozbieznosc" — sieć mówi co innego; w wersja_z_sieci podaj POPRAWNĄ wersję
-- "niepewne" — brak wiarygodnych źródeł, nie da się potwierdzić
+Zwróć WYŁĄCZNIE JSON (żadnego tekstu przed ani po):
+{"ustalenia":[{"twierdzenie":"<krótko, co w drafcie>","status":"rozbieznosc|niepewne","wersja_z_sieci":"<co naprawdę mówią źródła>","zrodlo":"<domena>"}]}
 
-Sprawdź maksymalnie 4-5 najważniejszych twierdzeń. Jeśli nie ma nic sprawdzalnego (sam komentarz),
-zwróć {"ustalenia":[]}."""
+Zgłaszaj TYLKO problemy:
+- "rozbieznosc" — draft mówi co innego niż rzeczywistość; w wersja_z_sieci podaj POPRAWNĄ wersję
+- "niepewne" — twierdzenie brzmi ryzykownie, a brak wiarygodnego źródła, żeby je potwierdzić
+Nie zwracaj statusu "potwierdzone" — jeśli coś się zgadza, po prostu tego nie wymieniaj."""
 
 
 def _extract_json(text: str) -> dict:
@@ -49,14 +48,10 @@ def _extract_json(text: str) -> dict:
         return {"ustalenia": []}
 
 
-def verify_draft(text: str, ciekawostki: list[dict]) -> list[dict]:
-    """Zwraca listę ustaleń fact-checku dla jednego draftu."""
+def verify_draft(text: str) -> list[dict]:
+    """Zwraca listę ustaleń fact-checku dla jednego draftu (tylko jego treść)."""
     client = llm.client()
-    user = json.dumps({
-        "draft": text,
-        "twierdzenia_z_filmow": [f"{c.get('kanal','')}: {c.get('fakt','')}" for c in ciekawostki],
-    }, ensure_ascii=False)
-    messages = [{"role": "user", "content": user}]
+    messages = [{"role": "user", "content": f"Draft do sprawdzenia:\n\n{text}"}]
 
     for _ in range(MAX_CONTINUE + 1):
         resp = client.messages.create(
@@ -85,7 +80,7 @@ def run(conn, topic_ids: list[int], date: str) -> dict:
         if not draft or not draft.get("tekst"):
             continue
         try:
-            ustalenia = verify_draft(draft["tekst"], card.get("ciekawostki", []))
+            ustalenia = verify_draft(draft["tekst"])
         except Exception as e:
             print(f"  ! weryfikacja tematu #{t['id']}: {type(e).__name__}: {e}")
             continue
