@@ -7,7 +7,7 @@ import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from . import analyze, build_site, db, drafts, fetch_videos, market_data, notify, topics, transcripts, verify
+from . import analyze, build_site, db, drafts, fetch_videos, llm, market_data, notify, topics, transcripts, verify
 
 
 def main() -> int:
@@ -45,6 +45,8 @@ def main() -> int:
 
     print("[8/8] telegram...")
     notify.send(conn, today)
+
+    print(f"koszt API (orientacyjnie): {llm.cost_summary()}")
     return 0
 
 

@@ -15,6 +15,9 @@ import re
 
 from . import db, llm
 
+# draft bez liczb i bez atrybucji "wg" nie ma czego sprawdzać (czysta opinia) — pomijamy web search
+_CHECKABLE = re.compile(r"\d|\bwg\b", re.IGNORECASE)
+
 WEB_SEARCH_TOOL = {"type": "web_search_20260209", "name": "web_search", "max_uses": 4}
 MAX_CONTINUE = 3  # obsługa pause_turn przy dłuższej serii wyszukiwań
 
@@ -60,6 +63,7 @@ def verify_draft(text: str) -> list[dict]:
             tools=[WEB_SEARCH_TOOL],
             messages=messages,
         )
+        llm.track(llm.MODEL_DRAFTS, resp)
         if resp.stop_reason == "pause_turn":  # serwer przerwał serię wyszukiwań — wznów
             messages.append({"role": "assistant", "content": resp.content})
             continue
@@ -78,6 +82,11 @@ def run(conn, topic_ids: list[int], date: str) -> dict:
         card = t["card"]
         draft = card.get("draft_x")
         if not draft or not draft.get("tekst"):
+            continue
+        if not _CHECKABLE.search(draft["tekst"]):
+            draft["weryfikacja"] = []
+            db.update_topic_card(conn, t["id"], card)
+            print(f"  - fact-check #{t['id']}: pominięty (brak liczb/twierdzeń do sprawdzenia)")
             continue
         try:
             ustalenia = verify_draft(draft["tekst"])
