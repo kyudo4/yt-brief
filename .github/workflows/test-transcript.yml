@@ -1,0 +1,39 @@
+# Diagnostyka: czy IP GitHub Actions może pobrać transkrypcje z YouTube?
+# Uruchom ręcznie (Actions -> test-transcript -> Run workflow). Nie rusza bazy ani strony.
+name: test-transcript
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Sonda transkrypcji na IP Actions
+        run: |
+          python -c "
+          from src.transcripts import fetch_one
+          probki = {
+              'vY0c8Pf_Fi4': 'Phil Konieczny (PL auto)',
+              '8T0AkOsNGks': 'kyudo (twój film)',
+              'dQw4w9WgXcQ': 'kontrolny (Rick Astley, EN)',
+          }
+          ok = 0
+          for vid, opis in probki.items():
+              try:
+                  r = fetch_one(vid)
+                  if r:
+                      print(f'{vid} [{opis}] -> OK: {len(r[2])} zn, jezyk={r[0]}')
+                      ok += 1
+                  else:
+                      print(f'{vid} [{opis}] -> brak napisow')
+              except Exception as e:
+                  print(f'{vid} [{opis}] -> {type(e).__name__}: {str(e)[:90]}')
+          print(f'=== WYNIK: {ok}/{len(probki)} transkrypcji pobrano na IP Actions ===')
+          "
