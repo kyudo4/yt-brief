@@ -7,7 +7,7 @@ import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from . import analyze, build_site, db, drafts, fetch_videos, market_data, notify, topics, transcripts
+from . import analyze, build_site, db, drafts, fetch_videos, market_data, notify, topics, transcripts, verify
 
 
 def main() -> int:
@@ -36,8 +36,10 @@ def main() -> int:
     print("[6/8] twarde dane + wykresy...")
     market_data.enrich_topics(conn, topic_ids, today)
 
-    print("[7/8] drafty na X (Sonnet) + strona...")
+    print("[7/8] drafty na X (Sonnet) + fact-check (web search) + strona...")
     n = drafts.generate(conn, topic_ids, today)
+    vstats = verify.run(conn, topic_ids, today)
+    print(f"      fact-check: {vstats}")
     out = build_site.build(conn, today)
     print(f"      draftów: {n}, strona: {out}")
 

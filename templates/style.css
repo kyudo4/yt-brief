@@ -39,6 +39,13 @@ nav a { margin-left: 10px; }
 .attach { margin-top: 10px; font-size: 0.9rem; color: var(--muted); }
 .attach img { display: block; margin-top: 6px; }
 
+.factcheck { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 0.9rem; }
+.factcheck ul { padding-left: 18px; margin: 6px 0 0; }
+.factcheck li { margin: 5px 0; }
+.fc-rozbieznosc { color: #f0a35e; }
+.fc-potwierdzone { color: #7bbf88; }
+.fc-niepewne { color: var(--muted); }
+
 button.copy {
   background: var(--accent); color: #000; border: 0; border-radius: 8px;
   padding: 6px 12px; font-weight: 600; cursor: pointer; font-size: 0.85rem;
