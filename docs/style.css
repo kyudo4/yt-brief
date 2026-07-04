@@ -39,6 +39,9 @@ nav a { margin-left: 10px; }
 .attach { margin-top: 10px; font-size: 0.9rem; color: var(--muted); }
 .attach img { display: block; margin-top: 6px; }
 
+.draft-source { margin-top: 10px; font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+.draft-source a { color: var(--link); }
+
 .factcheck { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 0.85rem; }
 .factcheck summary { cursor: pointer; color: var(--muted); font-weight: 600; }
 .factcheck ul { padding-left: 18px; margin: 6px 0 0; }

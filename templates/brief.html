@@ -40,6 +40,11 @@
       <button class="copy" data-copy="draft-{{ t.id }}">Kopiuj draft</button>
     </div>
     <pre id="draft-{{ t.id }}">{{ c.draft_x.tekst }}</pre>
+    {% if c.kto_co_mowi %}
+    <div class="draft-source">🎬 Z filmów:
+      {% for k in c.kto_co_mowi %}<a href="{{ k.url }}" target="_blank" title="{{ k.tytul_filmu }}">{{ k.kanal }} — {{ k.tytul_filmu|truncate(55) }}</a>{% if not loop.last %}<br>{% endif %}{% endfor %}
+    </div>
+    {% endif %}
     {% if c.draft_x.wykres %}
     <div class="attach">
       📎 podepnij do wpisu:
