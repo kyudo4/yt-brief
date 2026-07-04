@@ -44,25 +44,62 @@ LINK_CHARTS: dict[str, list[dict]] = {
     "gold": [
         {"typ": "link", "opis": "Złoto (XAU/USD)", "url": "https://www.tradingview.com/symbols/XAUUSD/", "zrodlo": "TradingView"},
     ],
+    "oil": [
+        {"typ": "link", "opis": "Ropa WTI", "url": "https://www.tradingview.com/symbols/NYMEX-CL1%21/", "zrodlo": "TradingView"},
+        {"typ": "link", "opis": "Cena ropy WTI (EIA/FRED)", "url": "https://fred.stlouisfed.org/series/DCOILWTICO", "zrodlo": "FRED"},
+    ],
 }
 
 COINGECKO_IDS = {"btc": ("bitcoin", "Bitcoin"), "eth": ("ethereum", "Ethereum")}
 
+# aktywa z Yahoo, dla których generujemy własny PNG (label, symbol Yahoo, jednostka osi)
+YAHOO_PNG = {
+    "oil":  ("Ropa WTI", "CL=F", "$"),
+    "gold": ("Złoto", "GC=F", "$"),
+    "spx":  ("S&P 500", "^GSPC", ""),
+    "dxy":  ("Indeks dolara (DXY)", "DX-Y.NYB", ""),
+    "mu":   ("Micron (MU)", "MU", "$"),
+}
 
-def price_chart_png(key: str, date: str, assets_dir: Path, days: int = 30) -> dict | None:
-    """PNG z ceną BTC/ETH z ostatnich 30 dni (CoinGecko). Fallback matplotlib ze specu."""
+_COLORS = {"btc": "#f7931a", "eth": "#8a92f8", "oil": "#e0803a", "gold": "#e8c559",
+           "spx": "#5ec27a", "dxy": "#6bd0d6", "mu": "#c07ad6"}
+
+
+def _render_png(out: Path, xs, ys, title: str, key: str, unit: str) -> None:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.dates as mdates
     import matplotlib.pyplot as plt
+
+    color = _COLORS.get(key, "#8a92f8")
+    fig, ax = plt.subplots(figsize=(8, 3.2), dpi=110)
+    fig.patch.set_facecolor("#14161a")
+    ax.set_facecolor("#14161a")
+    ax.plot(xs, ys, color=color, linewidth=1.8)
+    ax.fill_between(xs, ys, min(ys), alpha=0.12, color=color)
+    ax.set_title(title, color="#e8e8e8", fontsize=10, loc="left")
+    ax.tick_params(colors="#9aa0a6", labelsize=8)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d.%m"))
+    ax.yaxis.set_major_formatter(lambda v, _: f"{unit}{v:,.0f}".replace(",", " "))
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.grid(color="#2a2d33", linewidth=0.5)
+    fig.tight_layout()
+    fig.savefig(out, facecolor=fig.get_facecolor())
+    plt.close(fig)
+
+
+def price_chart_png(key: str, date: str, assets_dir: Path, days: int = 30) -> dict | None:
+    """PNG z ceną BTC/ETH z ostatnich 30 dni (CoinGecko)."""
     from datetime import datetime, timezone
 
     coin_id, label = COINGECKO_IDS[key]
     assets_dir.mkdir(parents=True, exist_ok=True)
     out = assets_dir / f"{date}-{key}-{days}d.png"
     rel = f"assets/{out.name}"
+    meta = {"typ": "png", "opis": f"{label} — {days} dni", "sciezka": rel, "zrodlo": "CoinGecko"}
     if out.exists():  # jeden wykres na dzień wystarczy
-        return {"typ": "png", "opis": f"{label} — {days} dni", "sciezka": rel, "zrodlo": "CoinGecko"}
+        return meta
 
     r = requests.get(
         f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart",
@@ -73,34 +110,53 @@ def price_chart_png(key: str, date: str, assets_dir: Path, days: int = 30) -> di
     points = r.json()["prices"]
     xs = [datetime.fromtimestamp(p[0] / 1000, tz=timezone.utc) for p in points]
     ys = [p[1] for p in points]
+    _render_png(out, xs, ys, f"{label} / USD — ostatnie {days} dni (CoinGecko)", key, "$")
+    return meta
 
-    fig, ax = plt.subplots(figsize=(8, 3.2), dpi=110)
-    fig.patch.set_facecolor("#14161a")
-    ax.set_facecolor("#14161a")
-    ax.plot(xs, ys, color="#f7931a" if key == "btc" else "#8a92f8", linewidth=1.8)
-    ax.fill_between(xs, ys, min(ys), alpha=0.12, color="#f7931a" if key == "btc" else "#8a92f8")
-    ax.set_title(f"{label} / USD — ostatnie {days} dni (CoinGecko)", color="#e8e8e8", fontsize=10, loc="left")
-    ax.tick_params(colors="#9aa0a6", labelsize=8)
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d.%m"))
-    ax.yaxis.set_major_formatter(lambda v, _: f"${v:,.0f}".replace(",", " "))
-    for spine in ax.spines.values():
-        spine.set_visible(False)
-    ax.grid(color="#2a2d33", linewidth=0.5)
-    fig.tight_layout()
-    fig.savefig(out, facecolor=fig.get_facecolor())
-    plt.close(fig)
-    return {"typ": "png", "opis": f"{label} — {days} dni", "sciezka": rel, "zrodlo": "CoinGecko"}
+
+def yahoo_chart_png(key: str, date: str, assets_dir: Path, days: int = 30) -> dict | None:
+    """PNG z ceną aktywa z Yahoo Finance (ropa, złoto, indeksy, akcje)."""
+    from datetime import datetime, timezone
+
+    label, symbol, unit = YAHOO_PNG[key]
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    out = assets_dir / f"{date}-{key}-{days}d.png"
+    rel = f"assets/{out.name}"
+    meta = {"typ": "png", "opis": f"{label} — {days} dni", "sciezka": rel, "zrodlo": "Yahoo Finance"}
+    if out.exists():
+        return meta
+
+    r = requests.get(
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
+        params={"range": "1mo", "interval": "1d"}, headers=UA, timeout=20,
+    )
+    r.raise_for_status()
+    res = r.json()["chart"]["result"][0]
+    ts = res["timestamp"]
+    closes = res["indicators"]["quote"][0]["close"]
+    pairs = [(datetime.fromtimestamp(t, tz=timezone.utc), c) for t, c in zip(ts, closes) if c is not None]
+    if len(pairs) < 2:
+        return None
+    xs, ys = zip(*pairs)
+    _render_png(out, list(xs), list(ys), f"{label} — ostatnie 30 dni (Yahoo Finance)", key, unit)
+    return meta
 
 
 def for_topic(keys: set[str], date: str, assets_dir: Path | None = None) -> list[dict]:
-    """Wykresy dla tematu: kuratorowane linki + PNG dla BTC/ETH."""
+    """Wykresy dla tematu: kuratorowane linki + własny PNG (crypto z CoinGecko,
+    reszta z Yahoo) tam, gdzie potrafimy go narysować."""
     assets_dir = assets_dir or DEFAULT_ASSETS
     out: list[dict] = []
     for key in sorted(keys):
         out.extend(LINK_CHARTS.get(key, []))
+        maker = None
         if key in COINGECKO_IDS:
+            maker = price_chart_png
+        elif key in YAHOO_PNG:
+            maker = yahoo_chart_png
+        if maker:
             try:
-                png = price_chart_png(key, date, assets_dir)
+                png = maker(key, date, assets_dir)
                 if png:
                     out.append(png)
             except Exception as e:

@@ -25,6 +25,7 @@ YAHOO = {
     "dxy":  ("DX-Y.NYB", "Indeks dolara (DXY)"),
     "spx":  ("^GSPC", "S&P 500"),
     "gold": ("GC=F", "Złoto (futures)"),
+    "oil":  ("CL=F", "Ropa WTI (futures)"),
 }
 
 

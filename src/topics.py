@@ -50,7 +50,7 @@ TOPICS_SCHEMA = {
                     "wniosek": {"type": "string", "description": "1-2 zdania: co z tego wynika dla rynku/portfela"},
                     "nadaje_sie_na_x": {"type": "boolean", "description": "czy temat nadaje się na draft posta na X"},
                     "potrzebne_dane": {"type": "array", "items": {"type": "string"},
-                                       "description": "jakie twarde dane pasują do karty, z listy: btc, eth, dominacja_btc, fear_greed, dxy, mu, spx, gold"},
+                                       "description": "jakie twarde dane pasują do TEGO tematu, z listy: btc, eth, dominacja_btc, fear_greed, dxy, mu, spx, gold, oil. Dawaj tylko realnie związane z tematem — nie dokładaj btc/fear_greed do każdego tematu z automatu. Temat bez wymiaru liczbowego (regulacje, przejęcie, wywiad) może mieć pustą listę."},
                 },
             },
         },

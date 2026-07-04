@@ -1,7 +1,10 @@
 """Sonnet: karta tematu -> draft wpisu na X. GŁÓWNY PRODUKT aplikacji.
 
-Draft dostaje automatycznie dobrany wykres (załącznik do wpisu). Tło i wyjaśnienia
-zostają na stronie jako ściąga dla autora — nigdy w treści draftu.
+Załącznik (wykres do wrzucenia do posta) i liczby trafiają do draftu TYLKO gdy
+realnie pasują do jego treści — decyduje o tym model piszący draft, bo tylko on
+wie, co napisał. Wpis o cenie/ruchu aktywa dostaje wykres tego aktywa; wpis o
+regulacjach, przejęciu czy sentymencie — żaden. Tło i pełne dane zostają w
+ściądze na stronie, nigdy w treści draftu.
 
 Zasada liczb: w drafcie wolno użyć wyłącznie liczb z twarde_dane (API) albo
 z dopiskiem "wg [kanał]". Pilnowane promptem + danymi wejściowymi.
@@ -15,6 +18,25 @@ from pathlib import Path
 from . import db, llm
 
 STYLE_FILE = Path(__file__).parent.parent / "style_examples.json"
+
+DRAFT_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["tekst", "wykres_id"],
+    "properties": {
+        "tekst": {
+            "type": "string",
+            "description": "Treść wpisu na X. Nitka: tweety oddzielone linią '---'. "
+                           "Pusty string, jeśli temat jest zbyt suchy na sensowny wpis (pas).",
+        },
+        "wykres_id": {
+            "type": "integer",
+            "description": "id załącznika z listy dostepne_wykresy, który BEZPOŚREDNIO ilustruje "
+                           "treść wpisu i warto go wrzucić do posta. -1, jeśli żaden nie pasuje "
+                           "albo wpis nie potrzebuje wykresu.",
+        },
+    },
+}
 
 RULES = """Piszesz drafty wpisów na X (Twitter) po polsku dla autora konta o krypto/makro/rynkach.
 
@@ -30,15 +52,20 @@ ZAKAZANE:
 - emoji-spam, "🚨 BREAKING", sztywne wyliczanki 1/2/3 bez potrzeby,
 - kalki z angielskiego, ton doradcy, hasztagowanie na siłę.
 
-LICZBY — ŻELAZNA ZASADA:
-- Możesz użyć tylko liczb z sekcji twarde_dane (pochodzą z API) oraz poziomów
-  z sekcji poziomy_wg_kanalu — te drugie ZAWSZE z dopiskiem "wg [nazwa kanału]".
+LICZBY — dawaj tylko gdy wpis ich POTRZEBUJE:
+- Nie wciskaj cen ani danych, jeśli wpis nie jest o liczbach (np. o regulacji,
+  przejęciu, narracji, sporze). Suchy fakt bronią się sam, cena BTC go nie ratuje.
+- Gdy już podajesz liczbę: wolno użyć TYLKO liczb z sekcji twarde_dane (z API)
+  oraz poziomów z poziomy_wg_kanalu — te drugie ZAWSZE z dopiskiem "wg [kanał]".
 - Żadnych liczb z głowy.
 
-FORMAT ODPOWIEDZI:
-- Sam tekst wpisu, bez komentarzy i cudzysłowów.
-- Nitka: kolejne tweety oddziel linią zawierającą wyłącznie "---".
-- Jeśli temat jest zbyt suchy na sensowny wpis, odpowiedz dokładnie: PAS"""
+ZAŁĄCZNIK (wykres_id):
+- Wskaż wykres z dostepne_wykresy TYLKO jeśli bezpośrednio ilustruje treść wpisu —
+  np. wpis o ruchu/poziomie ropy dostaje wykres ropy, wpis o cenie BTC wykres BTC.
+- Wpis o regulacjach, licencji, przejęciu, wywiadzie, sentymencie, narracji →
+  wykres_id: -1. Nie podpinaj wykresu tylko dlatego, że jest dostępny.
+- Lepiej brak wykresu niż niepasujący. Nigdy nie dobieraj wykresu innego aktywa
+  niż to, o którym jest wpis."""
 
 
 def _style_examples() -> str:
@@ -60,14 +87,10 @@ def _system() -> str:
     return RULES + _style_examples()
 
 
-def _pick_chart(card: dict) -> dict | None:
-    """Wykres-załącznik do wpisu: własny PNG > obrazek > pierwszy link."""
-    charts = card.get("wykresy", [])
-    for typ in ("png", "img", "link"):
-        for ch in charts:
-            if ch["typ"] == typ:
-                return ch
-    return None
+def _attachable(card: dict) -> list[dict]:
+    """Wykresy nadające się na załącznik do wpisu — tylko obrazki (png/img),
+    które da się realnie wrzucić. Linki (TradingView itp.) zostają w ściądze."""
+    return [w for w in card.get("wykresy", []) if w.get("typ") in ("png", "img")]
 
 
 def generate(conn, topic_ids: list[int], date: str) -> int:
@@ -78,6 +101,7 @@ def generate(conn, topic_ids: list[int], date: str) -> int:
         if t["id"] not in set(topic_ids):
             continue
         card = t["card"]
+        kandydaci = _attachable(card)
         user = json.dumps({
             "temat": card["naglowek"],
             "o_co_chodzi": card["o_co_chodzi"],
@@ -92,20 +116,30 @@ def generate(conn, topic_ids: list[int], date: str) -> int:
                 for e in card.get("twarde_dane", [])
             ],
             "wniosek": card.get("wniosek"),
+            "dostepne_wykresy": [
+                {"id": i, "opis": w["opis"], "zrodlo": w["zrodlo"]}
+                for i, w in enumerate(kandydaci)
+            ],
         }, ensure_ascii=False)
 
         try:
-            text = llm.call_text(model=llm.MODEL_DRAFTS, system=system, user=user, max_tokens=1200).strip()
+            res = llm.call_json(model=llm.MODEL_DRAFTS, system=system, user=user,
+                                schema=DRAFT_SCHEMA, max_tokens=1200)
         except Exception as e:
             print(f"  ! draft dla tematu #{t['id']}: {type(e).__name__}: {e}")
             continue
 
-        if text == "PAS":
+        text = res["tekst"].strip()
+        if not text:
             print(f"  - temat #{t['id']} spasowany ({card['naglowek'][:40]})")
             continue
-        card["draft_x"] = {"tekst": text, "wykres": _pick_chart(card)}
+
+        idx = res["wykres_id"]
+        wykres = kandydaci[idx] if isinstance(idx, int) and 0 <= idx < len(kandydaci) else None
+        card["draft_x"] = {"tekst": text, "wykres": wykres}
         db.update_topic_card(conn, t["id"], card)
         kind = "nitka" if "\n---\n" in text else "tweet"
-        print(f"  + draft ({kind}) dla tematu #{t['id']}: {card['naglowek'][:50]}")
+        zal = f", + wykres: {wykres['opis']}" if wykres else ", bez wykresu"
+        print(f"  + draft ({kind}) dla tematu #{t['id']}: {card['naglowek'][:45]}{zal}")
         made += 1
     return made
