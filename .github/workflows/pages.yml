@@ -1,5 +1,7 @@
 # Publikacja docs/ na GitHub Pages przez Actions (source: GitHub Actions).
-# Odpala się po każdym pushu zmieniającym docs/ — także po commitach bota z daily.yml.
+# Odpala się po pushu zmieniającym docs/ (od CZŁOWIEKA/PAT) oraz ręcznie
+# (workflow_dispatch). UWAGA: commit bota z daily.yml (GITHUB_TOKEN) NIE wyzwala
+# tego workflowu — dlatego codzienną publikację robi sam daily.yml u siebie.
 name: pages
 
 on:

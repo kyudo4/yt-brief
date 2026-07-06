@@ -15,6 +15,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: daily
@@ -23,6 +25,8 @@ concurrency:
 jobs:
   brief:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
     steps:
       - uses: actions/checkout@v4
 
@@ -44,6 +48,29 @@ jobs:
           WEBSHARE_PROXY_USERNAME: ${{ secrets.WEBSHARE_PROXY_USERNAME }}
           WEBSHARE_PROXY_PASSWORD: ${{ secrets.WEBSHARE_PROXY_PASSWORD }}
         run: python -m src.run_daily
+
+      # Publikacja na GitHub Pages W TYM SAMYM runie. Kluczowe: bot commituje
+      # tokenem GITHUB_TOKEN, a push takim tokenem NIE wyzwala workflowu pages.yml
+      # (ochrona przed pętlą). Bez tego kroku brief by się generował, ale nigdy
+      # sam nie publikował. Retry, bo Pages bywa flaky ("try again later").
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: pages1
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - if: steps.pages1.outcome == 'failure'
+        run: echo "deploy próba 1 padła — czekam 90s" && sleep 90
+      - id: pages2
+        if: steps.pages1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - if: steps.pages1.outcome == 'failure' && steps.pages2.outcome == 'failure'
+        run: echo "deploy próba 2 padła — czekam 180s" && sleep 180
+      - id: pages3
+        if: steps.pages1.outcome == 'failure' && steps.pages2.outcome == 'failure'
+        uses: actions/deploy-pages@v4
 
       # Fallback hostingu: konto ma blokadę deployów GitHub Pages (stan 2026-07-03).
       # Krok aktywuje się sam po dodaniu sekretów NETLIFY_AUTH_TOKEN + NETLIFY_SITE_ID
