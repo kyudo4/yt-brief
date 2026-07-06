@@ -10,6 +10,7 @@ do właściwego momentu filmu (&t=...s).
 
 from __future__ import annotations
 
+import os
 import time
 
 from youtube_transcript_api import (
@@ -18,8 +19,21 @@ from youtube_transcript_api import (
     VideoUnavailable,
     YouTubeTranscriptApi,
 )
+from youtube_transcript_api.proxies import GenericProxyConfig, WebshareProxyConfig
 
 from . import db
+
+
+def _proxy_config():
+    """Proxy rezydencjalny z env — obchodzi blokadę datacenter IP na Actions.
+    Webshare (natywny) albo dowolny proxy przez YT_PROXY_URL. Brak env = bez proxy (lokalnie)."""
+    u, pw = os.environ.get("WEBSHARE_PROXY_USERNAME"), os.environ.get("WEBSHARE_PROXY_PASSWORD")
+    if u and pw:
+        return WebshareProxyConfig(proxy_username=u, proxy_password=pw)
+    url = os.environ.get("YT_PROXY_URL")
+    if url:
+        return GenericProxyConfig(http_url=url, https_url=url)
+    return None
 
 LANGS = ["pl", "en"]
 BLOCK_S = 60
@@ -76,7 +90,7 @@ def _stamp(seconds: float) -> str:
 
 def fetch_one(video_id: str) -> tuple[str, bool, str] | None:
     """(lang, generated, text) albo None gdy brak napisów."""
-    api = YouTubeTranscriptApi()
+    api = YouTubeTranscriptApi(proxy_config=_proxy_config())
     try:
         transcript = _pick(api.list(video_id))
     except (TranscriptsDisabled, VideoUnavailable):
