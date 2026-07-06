@@ -62,16 +62,27 @@ def client() -> anthropic.Anthropic:
 
 
 def call_json(*, model: str, system: str, user: str, schema: dict, max_tokens: int = 4096) -> dict:
-    """Wywołanie ze structured output — zwraca dict zgodny ze schematem."""
-    resp = client().messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-        output_config={"format": {"type": "json_schema", "schema": schema}},
-        messages=[{"role": "user", "content": user}],
-    )
-    track(model, resp)
-    text = next(b.text for b in resp.content if b.type == "text")
+    """Wywołanie ze structured output — zwraca dict zgodny ze schematem.
+
+    Gdy generacja dobije do limitu (stop_reason='max_tokens'), structured output
+    DOMYKA JSON do poprawnej postaci, ale wartość stringa (np. tekst draftu) jest
+    ucięta w połowie — json.loads przejdzie, a treść będzie obcięta. Dlatego przy
+    ucięciu ponawiamy z podwojonym budżetem, zamiast po cichu oddać kadłubek.
+    """
+    text = "{}"
+    for _ in range(2):
+        resp = client().messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+            output_config={"format": {"type": "json_schema", "schema": schema}},
+            messages=[{"role": "user", "content": user}],
+        )
+        track(model, resp)
+        text = next(b.text for b in resp.content if b.type == "text")
+        if resp.stop_reason != "max_tokens":
+            break
+        max_tokens *= 2  # ucięte — spróbuj jeszcze raz z większym budżetem
     return json.loads(text)
 
 

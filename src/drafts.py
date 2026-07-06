@@ -176,7 +176,7 @@ def generate(conn, topic_ids: list[int], date: str) -> int:
 
         try:
             res = llm.call_json(model=llm.MODEL_DRAFTS, system=system, user=user,
-                                schema=DRAFT_SCHEMA, max_tokens=1200)
+                                schema=DRAFT_SCHEMA, max_tokens=1800)
         except Exception as e:
             print(f"  ! draft dla tematu #{t['id']}: {type(e).__name__}: {e}")
             continue
