@@ -52,6 +52,22 @@ LINK_CHARTS: dict[str, list[dict]] = {
 
 COINGECKO_IDS = {"btc": ("bitcoin", "Bitcoin"), "eth": ("ethereum", "Ethereum")}
 
+# Horyzont wykresu dobrany do CHARAKTERU aktywa: krypto ogląda się w skali dni
+# (ruch tygodnia), a makro/waluty/indeksy to zmiany REŻIMU — na 30 dni widać
+# tylko szum, więc idą na wieloletnim oknie. Klucz -> etykieta horyzontu.
+CHART_HORIZON = {
+    "btc": "30d", "eth": "30d",
+    "dxy": "5y", "gold": "5y", "spx": "5y", "oil": "5y", "mu": "2y",
+}
+
+# horyzont -> (dni CoinGecko, range Yahoo, interval Yahoo, opis do tytułu)
+HORIZONS = {
+    "30d": (30, "1mo", "1d", "ostatnie 30 dni"),
+    "1y":  (365, "1y", "1d", "ostatni rok"),
+    "2y":  (730, "2y", "1wk", "ostatnie 2 lata"),
+    "5y":  (1825, "5y", "1wk", "ostatnie 5 lat"),
+}
+
 # aktywa z Yahoo, dla których generujemy własny PNG (label, symbol Yahoo, jednostka osi)
 YAHOO_PNG = {
     "oil":  ("Ropa WTI", "CL=F", "$"),
@@ -79,7 +95,9 @@ def _render_png(out: Path, xs, ys, title: str, key: str, unit: str) -> None:
     ax.fill_between(xs, ys, min(ys), alpha=0.12, color=color)
     ax.set_title(title, color="#e8e8e8", fontsize=10, loc="left")
     ax.tick_params(colors="#9aa0a6", labelsize=8)
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d.%m"))
+    span_days = (max(xs) - min(xs)).days if len(xs) > 1 else 0
+    xfmt = "%Y" if span_days > 730 else "%m.%y" if span_days > 180 else "%d.%m"
+    ax.xaxis.set_major_formatter(mdates.DateFormatter(xfmt))
     ax.yaxis.set_major_formatter(lambda v, _: f"{unit}{v:,.0f}".replace(",", " "))
     for spine in ax.spines.values():
         spine.set_visible(False)
@@ -89,46 +107,48 @@ def _render_png(out: Path, xs, ys, title: str, key: str, unit: str) -> None:
     plt.close(fig)
 
 
-def price_chart_png(key: str, date: str, assets_dir: Path, days: int = 30) -> dict | None:
-    """PNG z ceną BTC/ETH z ostatnich 30 dni (CoinGecko)."""
+def price_chart_png(key: str, date: str, assets_dir: Path, horizon: str = "30d") -> dict | None:
+    """PNG z ceną BTC/ETH z CoinGecko na zadanym horyzoncie."""
     from datetime import datetime, timezone
 
+    days, _yr, _yi, opis = HORIZONS.get(horizon, HORIZONS["30d"])
     coin_id, label = COINGECKO_IDS[key]
     assets_dir.mkdir(parents=True, exist_ok=True)
-    out = assets_dir / f"{date}-{key}-{days}d.png"
+    out = assets_dir / f"{date}-{key}-{horizon}.png"
     rel = f"assets/{out.name}"
-    meta = {"typ": "png", "opis": f"{label} — {days} dni", "sciezka": rel, "zrodlo": "CoinGecko"}
+    meta = {"typ": "png", "opis": f"{label} — {opis}", "sciezka": rel, "zrodlo": "CoinGecko"}
     if out.exists():  # jeden wykres na dzień wystarczy
         return meta
 
     r = requests.get(
         f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart",
-        params={"vs_currency": "usd", "days": days, "interval": "daily"},
+        params={"vs_currency": "usd", "days": days},  # interval dobiera CoinGecko po zakresie
         headers=UA, timeout=20,
     )
     r.raise_for_status()
     points = r.json()["prices"]
     xs = [datetime.fromtimestamp(p[0] / 1000, tz=timezone.utc) for p in points]
     ys = [p[1] for p in points]
-    _render_png(out, xs, ys, f"{label} / USD — ostatnie {days} dni (CoinGecko)", key, "$")
+    _render_png(out, xs, ys, f"{label} / USD — {opis} (CoinGecko)", key, "$")
     return meta
 
 
-def yahoo_chart_png(key: str, date: str, assets_dir: Path, days: int = 30) -> dict | None:
-    """PNG z ceną aktywa z Yahoo Finance (ropa, złoto, indeksy, akcje)."""
+def yahoo_chart_png(key: str, date: str, assets_dir: Path, horizon: str = "30d") -> dict | None:
+    """PNG z ceną aktywa z Yahoo Finance (ropa, złoto, indeksy, akcje) na zadanym horyzoncie."""
     from datetime import datetime, timezone
 
+    _days, yrange, yinterval, opis = HORIZONS.get(horizon, HORIZONS["30d"])
     label, symbol, unit = YAHOO_PNG[key]
     assets_dir.mkdir(parents=True, exist_ok=True)
-    out = assets_dir / f"{date}-{key}-{days}d.png"
+    out = assets_dir / f"{date}-{key}-{horizon}.png"
     rel = f"assets/{out.name}"
-    meta = {"typ": "png", "opis": f"{label} — {days} dni", "sciezka": rel, "zrodlo": "Yahoo Finance"}
+    meta = {"typ": "png", "opis": f"{label} — {opis}", "sciezka": rel, "zrodlo": "Yahoo Finance"}
     if out.exists():
         return meta
 
     r = requests.get(
         f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
-        params={"range": "1mo", "interval": "1d"}, headers=UA, timeout=20,
+        params={"range": yrange, "interval": yinterval}, headers=UA, timeout=20,
     )
     r.raise_for_status()
     res = r.json()["chart"]["result"][0]
@@ -138,7 +158,7 @@ def yahoo_chart_png(key: str, date: str, assets_dir: Path, days: int = 30) -> di
     if len(pairs) < 2:
         return None
     xs, ys = zip(*pairs)
-    _render_png(out, list(xs), list(ys), f"{label} — ostatnie 30 dni (Yahoo Finance)", key, unit)
+    _render_png(out, list(xs), list(ys), f"{label} — {opis} (Yahoo Finance)", key, unit)
     return meta
 
 
@@ -156,7 +176,7 @@ def for_topic(keys: set[str], date: str, assets_dir: Path | None = None) -> list
             maker = yahoo_chart_png
         if maker:
             try:
-                png = maker(key, date, assets_dir)
+                png = maker(key, date, assets_dir, horizon=CHART_HORIZON.get(key, "30d"))
                 if png:
                     out.append(png)
             except Exception as e:
