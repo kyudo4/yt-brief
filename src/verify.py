@@ -18,8 +18,9 @@ from . import db, llm
 # draft bez liczb i bez atrybucji "wg" nie ma czego sprawdzać (czysta opinia) — pomijamy web search
 _CHECKABLE = re.compile(r"\d|\bwg\b", re.IGNORECASE)
 
-WEB_SEARCH_TOOL = {"type": "web_search_20260209", "name": "web_search", "max_uses": 4}
-MAX_CONTINUE = 3  # obsługa pause_turn przy dłuższej serii wyszukiwań
+# Bazowy web search (bez code execution) + limit 2 wyszukań = maksymalne cięcie kosztu.
+WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 2}
+MAX_CONTINUE = 2  # obsługa pause_turn przy dłuższej serii wyszukiwań
 
 SYSTEM = """Jesteś fact-checkerem wpisów o krypto, makro i akcjach. Dostajesz draft wpisu na X.
 
@@ -58,12 +59,12 @@ def verify_draft(text: str) -> list[dict]:
 
     for _ in range(MAX_CONTINUE + 1):
         resp = client.messages.create(
-            model=llm.MODEL_DRAFTS, max_tokens=2000,
+            model=llm.MODEL_CHEAP, max_tokens=1000,
             system=[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
             tools=[WEB_SEARCH_TOOL],
             messages=messages,
         )
-        llm.track(llm.MODEL_DRAFTS, resp)
+        llm.track(llm.MODEL_CHEAP, resp)
         if resp.stop_reason == "pause_turn":  # serwer przerwał serię wyszukiwań — wznów
             messages.append({"role": "assistant", "content": resp.content})
             continue
