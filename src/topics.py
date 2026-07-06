@@ -50,7 +50,7 @@ TOPICS_SCHEMA = {
                     "wniosek": {"type": "string", "description": "1-2 zdania: co z tego wynika dla rynku/portfela"},
                     "nadaje_sie_na_x": {"type": "boolean", "description": "czy temat nadaje się na draft posta na X"},
                     "potrzebne_dane": {"type": "array", "items": {"type": "string"},
-                                       "description": "jakie twarde dane pasują do TEGO tematu, z listy: btc, eth, dominacja_btc, fear_greed, dxy, mu, spx, gold, oil. Dawaj tylko realnie związane z tematem — nie dokładaj btc/fear_greed do każdego tematu z automatu. Temat bez wymiaru liczbowego (regulacje, przejęcie, wywiad) może mieć pustą listę."},
+                                       "description": "z listy: btc, eth, dominacja_btc, fear_greed, dxy, mu, spx, gold, oil. Dodaj ticker/dane TYLKO gdy temat jest WPROST o cenie, ruchu lub poziomie tego aktywa. Temat o modelu biznesowym, technologii, migracji, przejęciu, regulacji czy narracji — NAWET jeśli wspomina BTC/ETH — daje PUSTĄ listę (cena BTC nic nie wnosi do wpisu o tym, że górnicy przechodzą na AI). W razie wątpliwości: pusta lista."},
                 },
             },
         },
@@ -159,14 +159,19 @@ def _build_card(t: dict, by_vid: dict, related: dict | None, date: str) -> dict:
 
 
 def _collect_levels(t: dict, by_vid: dict) -> list[dict]:
-    """Poziomy 'wg kanału' z wyciągów filmów przypiętych do tematu."""
+    """Poziomy 'wg kanału' — TYLKO dla aktywów, o które temat realnie prosi
+    (potrzebne_dane). Dzięki temu wpis o modelu biznesowym nie ciągnie za sobą
+    prognoz ceny BTC tylko dlatego, że BTC pada w temacie z boku."""
+    needed = {d.lower() for d in t.get("potrzebne_dane", [])}
+    if not needed:
+        return []
     levels = []
     for k in t["kto_co_mowi"]:
         v = by_vid.get(k["video_id"])
         if not v:
             continue
         for lvl in v["data"].get("poziomy_wg_kanalu", []):
-            if lvl["ticker"].upper() in [x.upper() for x in t["tickery"]]:
+            if lvl["ticker"].lower() in needed:
                 levels.append({**lvl, "kanal": v["channel_name"]})
     return levels
 
