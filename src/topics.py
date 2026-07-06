@@ -23,7 +23,7 @@ TOPICS_SCHEMA = {
                 "additionalProperties": False,
                 "required": ["tytul", "zajawka", "o_co_chodzi", "tlo", "keywords", "tickery",
                              "kto_co_mowi", "konsensus_rozjazdy", "wniosek", "nadaje_sie_na_x",
-                             "potrzebne_dane"],
+                             "potrzebne_dane", "horyzont"],
                 "properties": {
                     "tytul": {"type": "string", "description": "krótki nagłówek tematu"},
                     "zajawka": {"type": "string", "description": "JEDNO zdanie do Telegrama, zrozumiałe bez kontekstu"},
@@ -51,6 +51,8 @@ TOPICS_SCHEMA = {
                     "nadaje_sie_na_x": {"type": "boolean", "description": "czy temat nadaje się na draft posta na X"},
                     "potrzebne_dane": {"type": "array", "items": {"type": "string"},
                                        "description": "z listy: btc, eth, dominacja_btc, fear_greed, dxy, mu, spx, gold, oil. Dodaj ticker/dane TYLKO gdy temat jest WPROST o cenie, ruchu lub poziomie tego aktywa. Temat o modelu biznesowym, technologii, migracji, przejęciu, regulacji czy narracji — NAWET jeśli wspomina BTC/ETH — daje PUSTĄ listę (cena BTC nic nie wnosi do wpisu o tym, że górnicy przechodzą na AI). W razie wątpliwości: pusta lista."},
+                    "horyzont": {"type": "string", "enum": ["krotki", "dlugi"],
+                                 "description": "rama czasowa TEZY (steruje interwałem wykresu): 'krotki' = o bieżącym ruchu, dni/tygodnie (np. reakcja na dane, dzisiejszy wybicie); 'dlugi' = teza strukturalna/wieloletnia (cykl 4-letni, halving, zmiana reżimu waluty, trend na lata). Cykliczny/strukturalny temat MUSI mieć 'dlugi', żeby wykres pokazał kilka lat, a nie ostatni miesiąc szumu."},
                 },
             },
         },
@@ -147,6 +149,7 @@ def _build_card(t: dict, by_vid: dict, related: dict | None, date: str) -> dict:
         "wniosek": t["wniosek"],
         "nadaje_sie_na_x": t["nadaje_sie_na_x"],
         "potrzebne_dane": t["potrzebne_dane"],
+        "horyzont": t.get("horyzont", "krotki"),
         "poziomy_wg_kanalu": _collect_levels(t, by_vid),
         "ciekawostki": _collect_facts(t, by_vid),
     }

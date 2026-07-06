@@ -139,7 +139,7 @@ def enrich_topics(conn, topic_ids: list[int], date: str, assets_dir=None) -> Non
         card = t["card"]
         keys = set(card.get("potrzebne_dane", []))
         card["twarde_dane"] = [data[k] for k in keys if k in data]
-        card["wykresy"] = charts.for_topic(keys, date, assets_dir)
+        card["wykresy"] = charts.for_topic(keys, date, assets_dir, dlugi=card.get("horyzont") == "dlugi")
         db.update_topic_card(conn, t["id"], card)
         print(f"  + temat #{t['id']}: {len(card['twarde_dane'])} metryk, {len(card['wykresy'])} wykresów")
 

@@ -77,6 +77,15 @@ YAHOO_PNG = {
     "mu":   ("Micron (MU)", "MU", "$"),
 }
 
+# Krypto z Yahoo — używane TYLKO na długim horyzoncie (CoinGecko za darmo tnie do
+# 365 dni, więc cyklu 4-letniego BTC nie da się z niego narysować). Krótkie okno
+# dalej idzie z CoinGecko (price_chart_png).
+YAHOO_CRYPTO = {
+    "btc": ("Bitcoin", "BTC-USD", "$"),
+    "eth": ("Ethereum", "ETH-USD", "$"),
+}
+_YAHOO_ALL = {**YAHOO_PNG, **YAHOO_CRYPTO}
+
 _COLORS = {"btc": "#f7931a", "eth": "#8a92f8", "oil": "#e0803a", "gold": "#e8c559",
            "spx": "#5ec27a", "dxy": "#6bd0d6", "mu": "#c07ad6"}
 
@@ -138,7 +147,7 @@ def yahoo_chart_png(key: str, date: str, assets_dir: Path, horizon: str = "30d")
     from datetime import datetime, timezone
 
     _days, yrange, yinterval, opis = HORIZONS.get(horizon, HORIZONS["30d"])
-    label, symbol, unit = YAHOO_PNG[key]
+    label, symbol, unit = _YAHOO_ALL[key]
     assets_dir.mkdir(parents=True, exist_ok=True)
     out = assets_dir / f"{date}-{key}-{horizon}.png"
     rel = f"assets/{out.name}"
@@ -162,23 +171,27 @@ def yahoo_chart_png(key: str, date: str, assets_dir: Path, horizon: str = "30d")
     return meta
 
 
-def for_topic(keys: set[str], date: str, assets_dir: Path | None = None) -> list[dict]:
-    """Wykresy dla tematu: kuratorowane linki + własny PNG (crypto z CoinGecko,
-    reszta z Yahoo) tam, gdzie potrafimy go narysować."""
+def for_topic(keys: set[str], date: str, assets_dir: Path | None = None,
+              dlugi: bool = False) -> list[dict]:
+    """Wykresy dla tematu: kuratorowane linki + własny PNG. Horyzont dobrany do
+    tezy tematu: `dlugi=True` (teza strukturalna/cykliczna) ciągnie krypto na
+    wieloletnim oknie z Yahoo; krótka teza zostaje na 30 dniach z CoinGecko.
+    Makro (DXY, złoto, S&P, ropa) i tak jest wieloletnie z definicji."""
     assets_dir = assets_dir or DEFAULT_ASSETS
     out: list[dict] = []
     for key in sorted(keys):
         out.extend(LINK_CHARTS.get(key, []))
-        maker = None
-        if key in COINGECKO_IDS:
-            maker = price_chart_png
-        elif key in YAHOO_PNG:
-            maker = yahoo_chart_png
-        if maker:
-            try:
-                png = maker(key, date, assets_dir, horizon=CHART_HORIZON.get(key, "30d"))
-                if png:
-                    out.append(png)
-            except Exception as e:
-                print(f"  ! wykres {key}: {type(e).__name__}: {e}")
+        try:
+            png = None
+            if key in COINGECKO_IDS:
+                if dlugi and key in YAHOO_CRYPTO:  # cykl/reżim — długie okno z Yahoo
+                    png = yahoo_chart_png(key, date, assets_dir, horizon="5y")
+                else:  # bieżący ruch — 30 dni z CoinGecko
+                    png = price_chart_png(key, date, assets_dir, horizon="30d")
+            elif key in YAHOO_PNG:
+                png = yahoo_chart_png(key, date, assets_dir, horizon=CHART_HORIZON.get(key, "30d"))
+            if png:
+                out.append(png)
+        except Exception as e:
+            print(f"  ! wykres {key}: {type(e).__name__}: {e}")
     return out
