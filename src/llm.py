@@ -21,9 +21,10 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-# Modele Gemini (konfigurowalne env). Flash ma darmowy tier i dobry polski.
-MODEL_CHEAP = os.environ.get("GEMINI_MODEL_CHEAP", "gemini-2.5-flash")    # ekstrakcja + tematy
-MODEL_DRAFTS = os.environ.get("GEMINI_MODEL_DRAFTS", "gemini-2.5-flash")  # drafty
+# Modele Gemini (konfigurowalne env). 2.0-flash ma dużo wyższy darmowy limit
+# dzienny niż 2.5-flash (2.5-flash free = ~20 req/dzień, za mało na cały brief).
+MODEL_CHEAP = os.environ.get("GEMINI_MODEL_CHEAP", "gemini-2.0-flash")    # ekstrakcja + tematy
+MODEL_DRAFTS = os.environ.get("GEMINI_MODEL_DRAFTS", "gemini-2.0-flash")  # drafty
 
 _client = None
 _usage = {"in": 0, "out": 0, "calls": 0}  # tokeny wejścia/wyjścia + liczba wywołań
@@ -62,9 +63,18 @@ _DROP_KEYS = {"additionalProperties", "$schema", "$id", "default"}
 
 
 def _clean_schema(node):
-    """Przycina schemat do postaci strawnej dla Gemini (usuwa additionalProperties itd.)."""
+    """Przycina schemat do postaci strawnej dla Gemini: usuwa additionalProperties itd.
+    oraz enum-y liczbowe (Gemini wymaga enum jako listy STRINGÓW — typ+opis wystarczą,
+    np. sentyment integer -2..2 zostaje bez enum)."""
     if isinstance(node, dict):
-        return {k: _clean_schema(v) for k, v in node.items() if k not in _DROP_KEYS}
+        out = {}
+        for k, v in node.items():
+            if k in _DROP_KEYS:
+                continue
+            if k == "enum" and isinstance(v, list) and not all(isinstance(x, str) for x in v):
+                continue  # enum niestringowy — Gemini go nie przyjmie
+            out[k] = _clean_schema(v)
+        return out
     if isinstance(node, list):
         return [_clean_schema(x) for x in node]
     return node
@@ -172,7 +182,6 @@ def call_json_video(*, model: str, system: str, user: str, schema: dict, video_u
                 response_mime_type="application/json",
                 response_schema=gschema,
                 media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW,
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
         track(model, resp)
