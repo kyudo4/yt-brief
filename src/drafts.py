@@ -144,6 +144,19 @@ def _attachable(card: dict) -> list[dict]:
     return [w for w in card.get("wykresy", []) if w.get("typ") in ("png", "img")]
 
 
+def _looks_complete(text: str) -> bool:
+    """Czy draft wygląda na skończony (nie ucięty w połowie). Pusty = nie (do
+    ponowienia). Dyskleimer autora na końcu traktujemy jako komplet, nawet bez
+    kropki; poza tym wymagamy interpunkcji domykającej — ucięcie kończy się
+    zwykle w połowie słowa albo na cudzysłowie OTWIERAJĄCYM („)."""
+    t = text.strip()
+    if not t:
+        return False
+    if "porada inwestycyjna" in t[-60:].lower():
+        return True
+    return t[-1] in ".!?\"”'’)]…"
+
+
 def generate(conn, topic_ids: list[int], date: str) -> int:
     """Generuje draft dla każdego tematu dnia. Zwraca liczbę draftów."""
     system = _system()
@@ -174,17 +187,31 @@ def generate(conn, topic_ids: list[int], date: str) -> int:
             ],
         }, ensure_ascii=False)
 
-        try:
-            res = llm.call_json(model=llm.MODEL_DRAFTS, system=system, user=user,
-                                schema=DRAFT_SCHEMA, max_tokens=1800)
-        except Exception as e:
-            print(f"  ! draft dla tematu #{t['id']}: {type(e).__name__}: {e}")
+        # Ucięcia i puste zwroty bywają sporadyczne (glitch structured output) —
+        # waliduj kompletność i ponów wadliwe, zamiast zapisać kadłubek.
+        res, text = None, ""
+        for attempt in range(3):
+            try:
+                res = llm.call_json(model=llm.MODEL_DRAFTS, system=system, user=user,
+                                    schema=DRAFT_SCHEMA, max_tokens=1800)
+            except Exception as e:
+                print(f"  ! draft dla tematu #{t['id']}: {type(e).__name__}: {e}")
+                res = None
+                break
+            text = res["tekst"].strip()
+            if _looks_complete(text):
+                break
+            if attempt < 2:
+                powod = "pusty" if not text else "ucięty"
+                print(f"  ~ draft #{t['id']} {powod} — ponawiam ({attempt + 1}/2)")
+        if res is None:
             continue
 
-        text = res["tekst"].strip()
         if not text:
             print(f"  - temat #{t['id']} spasowany ({card['naglowek'][:40]})")
             continue
+        if not _looks_complete(text):
+            print(f"  ! draft #{t['id']} nadal wygląda na ucięty — zapisuję mimo to")
 
         idx = res["wykres_id"]
         wykres = kandydaci[idx] if isinstance(idx, int) and 0 <= idx < len(kandydaci) else None

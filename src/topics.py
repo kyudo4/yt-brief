@@ -84,9 +84,10 @@ co nowego, co się zmieniło w narracji kanałów, co pozostaje aktualne. Prosty
 całego tła. Nie podawaj liczb rynkowych jako faktów (liczby tylko z dopiskiem "wg [kanał]")."""
 
 
-def group(conn, date: str) -> list[int]:
-    """Grupuje wyciągi dnia w tematy, zapisuje karty. Zwraca id tematów."""
-    extracts = db.extracts_for_date(conn, date)
+def group(conn, date: str, lookback_days: int = 1) -> list[int]:
+    """Grupuje wyciągi dnia w tematy, zapisuje karty. Zwraca id tematów.
+    lookback_days poszerza okno źródłowe (ile dni wstecz brać filmy)."""
+    extracts = db.extracts_for_date(conn, date, lookback_days=lookback_days)
     if not extracts:
         print("  brak wyciągów do pogrupowania")
         return []

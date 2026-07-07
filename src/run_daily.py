@@ -3,6 +3,7 @@
 Etapy dochodzą w kolejnych krokach budowy — każdy podpinany tutaj.
 """
 
+import os
 import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -30,8 +31,11 @@ def main() -> int:
     print(f"      {astats}")
 
     print("[5/8] tematy dnia...")
-    topic_ids = topics.group(conn, today)
-    print(f"      tematów: {len(topic_ids)}")
+    # Okno grupowania szersze niż domyślne 24h: kanały publikują nierówno, a dedup
+    # (extracts_for_date pomija filmy z wcześniejszych briefów) chroni przed powtórkami.
+    lookback = int(os.environ.get("YT_BRIEF_LOOKBACK_DAYS", "3"))
+    topic_ids = topics.group(conn, today, lookback_days=lookback)
+    print(f"      tematów: {len(topic_ids)} (okno {lookback} dni)")
 
     print("[6/8] twarde dane + wykresy...")
     market_data.enrich_topics(conn, topic_ids, today)

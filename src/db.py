@@ -152,14 +152,22 @@ def save_extract(conn, video_id: str, data: dict, model: str):
     set_video_status(conn, video_id, "analyzed")
 
 
-def extracts_for_date(conn, date: str) -> list[dict]:
-    """Wyciągi z filmów opublikowanych w oknie briefu (ostatnie 24h przed datą)."""
+def extracts_for_date(conn, date: str, lookback_days: int = 1) -> list[dict]:
+    """Wyciągi z filmów w oknie briefu, POMIJAJĄC te już użyte we wcześniejszym
+    briefie (żeby ten sam film nie wracał dwa dni z rzędu — okna dni się nakładają).
+    lookback_days poszerza okno wstecz; dedup sprawia, że można je otworzyć szeroko
+    i dociągnąć zaległości bez ryzyka powtórek."""
     rows = conn.execute(
         """SELECT e.video_id, e.data, v.channel_name, v.title, v.url, v.published_at
            FROM extracts e JOIN videos v USING (video_id)
-           WHERE v.status = 'analyzed' AND date(v.published_at) >= date(?, '-1 day')
+           WHERE v.status = 'analyzed' AND date(v.published_at) >= date(?, ?)
+             AND v.video_id NOT IN (
+                 SELECT tv.video_id FROM topic_videos tv
+                 JOIN topics t ON t.id = tv.topic_id
+                 WHERE t.date < ?
+             )
            ORDER BY v.published_at""",
-        (date,),
+        (date, f"-{lookback_days} day", date),
     ).fetchall()
     return [dict(r, data=json.loads(r["data"])) for r in rows]
 
