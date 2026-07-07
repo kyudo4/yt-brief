@@ -21,10 +21,11 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-# Modele Gemini (konfigurowalne env). 2.0-flash ma dużo wyższy darmowy limit
-# dzienny niż 2.5-flash (2.5-flash free = ~20 req/dzień, za mało na cały brief).
-MODEL_CHEAP = os.environ.get("GEMINI_MODEL_CHEAP", "gemini-2.0-flash")    # ekstrakcja + tematy
-MODEL_DRAFTS = os.environ.get("GEMINI_MODEL_DRAFTS", "gemini-2.0-flash")  # drafty
+# Modele Gemini (konfigurowalne env). 2.5-flash to jedyny model z darmowym tierem
+# na tym koncie (2.0-flash ma limit 0). Darmowy limit 2.5-flash: ~20 zapytań/dobę —
+# starcza na normalny dzień (kilka filmów), przy zaległościach analyze dzieli na kilka dni.
+MODEL_CHEAP = os.environ.get("GEMINI_MODEL_CHEAP", "gemini-2.5-flash")    # ekstrakcja + tematy
+MODEL_DRAFTS = os.environ.get("GEMINI_MODEL_DRAFTS", "gemini-2.5-flash")  # drafty
 
 _client = None
 _usage = {"in": 0, "out": 0, "calls": 0}  # tokeny wejścia/wyjścia + liczba wywołań
@@ -182,6 +183,7 @@ def call_json_video(*, model: str, system: str, user: str, schema: dict, video_u
                 response_mime_type="application/json",
                 response_schema=gschema,
                 media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),  # 2.5-flash: myślenie off
             ),
         )
         track(model, resp)

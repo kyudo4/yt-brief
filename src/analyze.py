@@ -13,6 +13,9 @@ MAX_TRANSCRIPT_CHARS = 80_000  # ~30k tokenów przy ścieżce tekstowej
 # Film >2h to ~700k+ tokenów w jednym zapytaniu — pomijamy, żeby nie oberwać
 # rate-limitem darmowego tieru Gemini na pojedynczym gigancie.
 MAX_VIDEO_S = 7200
+# Darmowy tier 2.5-flash to ~20 zapytań/dobę; grupowanie + drafty zjadają ~7,
+# więc ekstrakcje limitujemy, a resztę zaległości analyze dobierze kolejnego dnia.
+MAX_EXTRACTIONS_PER_RUN = 10
 
 EXTRACT_SCHEMA = {
     "type": "object",
@@ -112,20 +115,32 @@ def run(conn) -> dict:
     sam FILM z URL. Przy limicie darmowego tieru przerywa i zostawia resztę na kolejny run."""
     stats = {"ok": 0, "video": 0, "error": 0, "skip": 0}
     seen, pending = set(), []
-    for status in ("transcribed", "new"):  # 'transcribed' = tekst, 'new' = blokada -> wideo
+    # 'transcribed' = tekst (tanio), 'new' = blokada IP -> wideo, 'error' = wcześniejsza
+    # nieudana próba (np. brak napisów) -> spróbuj z wideo. Bez extractu = do zrobienia.
+    for status in ("transcribed", "new", "error"):
         for v in db.videos_by_status(conn, status):
             if v["video_id"] not in seen:
                 seen.add(v["video_id"])
                 pending.append(v)
     pending.sort(key=lambda v: v["published_at"] or "", reverse=True)  # najnowsze pierwsze
 
-    rl_streak = 0  # ile rate-limitów z rzędu (3 = pewnie wyczerpany dzienny limit)
+    rl_streak = 0    # ile rate-limitów z rzędu (3 = pewnie wyczerpany dzienny limit)
+    processed = 0    # ile realnych wywołań API (chronimy darmowy limit ~20/dobę)
     for v in pending:
+        if processed >= MAX_EXTRACTIONS_PER_RUN:
+            print(f"  · limit {MAX_EXTRACTIONS_PER_RUN} ekstrakcji na run — reszta jutro")
+            break
         vid = v["video_id"]
         try:
             t = db.get_transcript(conn, vid)
         except Exception:
             t = None
+        # bardzo długi film bez transkrypcji pomijamy PRZED wywołaniem (nie liczy się do limitu)
+        if not (t and t["text"]) and (v["duration_s"] or 0) > MAX_VIDEO_S:
+            print(f"  - pomijam (>{MAX_VIDEO_S // 3600}h, za długi na video-URL): {v['title'][:45]}")
+            stats["skip"] += 1
+            continue
+        processed += 1
         try:
             if t and t["text"]:
                 user = (f"Kanał: {v['channel_name']}\nTytuł: {v['title']}\n"
@@ -135,10 +150,6 @@ def run(conn) -> dict:
                                      schema=EXTRACT_SCHEMA, max_tokens=3000)
                 src = ""
             else:
-                if (v["duration_s"] or 0) > MAX_VIDEO_S:
-                    print(f"  - pomijam (>{MAX_VIDEO_S // 3600}h, za długi na video-URL): {v['title'][:45]}")
-                    stats["skip"] += 1
-                    continue
                 user = (f"Kanał: {v['channel_name']}\nTytuł: {v['title']}\n"
                         "Wyciąg pisz po polsku.")
                 data = llm.call_json_video(model=llm.MODEL_CHEAP, system=SYSTEM_VIDEO, user=user,
@@ -150,11 +161,11 @@ def run(conn) -> dict:
                 rl_streak += 1
                 print(f"  ! limit Gemini na {vid} (z rzędu: {rl_streak})")
                 if rl_streak >= 3:
-                    print("  ! 3x limit z rzędu — kończę analizę, reszta w kolejnym runie")
+                    print("  ! 3x limit z rzędu — kończę analizę, reszta jutro")
                     break
                 continue  # pojedynczy film (pewnie za długi) — pomiń, próbuj dalej
+            # Nie ustawiamy 'error' — zostawiamy status, żeby transient nie wykluczył filmu.
             print(f"  ! błąd analizy {vid}: {type(e).__name__}: {str(e)[:120]}")
-            db.set_video_status(conn, vid, "error", f"analyze: {e}")
             stats["error"] += 1
             continue
         rl_streak = 0  # sukces resetuje licznik limitów
