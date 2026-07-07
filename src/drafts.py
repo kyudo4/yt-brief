@@ -192,8 +192,10 @@ def generate(conn, topic_ids: list[int], date: str) -> int:
         res, text = None, ""
         for attempt in range(3):
             try:
+                # Duży budżet: na 2.5-flash myślenie (jakość!) + pełna nitka muszą
+                # się zmieścić w JEDNYM wywołaniu, żeby nie ucinać i nie palić limitu na retry.
                 res = llm.call_json(model=llm.MODEL_DRAFTS, system=system, user=user,
-                                    schema=DRAFT_SCHEMA, max_tokens=1800)
+                                    schema=DRAFT_SCHEMA, max_tokens=6000)
             except Exception as e:
                 print(f"  ! draft dla tematu #{t['id']}: {type(e).__name__}: {e}")
                 res = None
