@@ -1,98 +1,149 @@
-"""Wspólna warstwa wywołań Claude API.
+"""Wspólna warstwa wywołań LLM — Google Gemini (darmowy tier).
 
-- Ekstrakcja i grupowanie: claude-haiku-4-5-20251001 (najtańszy).
-- Drafty na X: claude-sonnet-4-6 (tylko finalne teksty).
-- Stałe części promptów (system) z cache_control ephemeral — hity cache
-  w obrębie jednego runu. Uwaga: Haiku 4.5 cache'uje prefiksy od ~4096
-  tokenów, krótsze systemy po prostu nie łapią cache (bez błędu).
-- JSON przez structured outputs (output_config.format) — API gwarantuje
-  poprawny JSON zgodny ze schematem, zero parsowania fence'ów.
+Migracja z Claude: interfejs (call_json / call_text / MODEL_* / cost_summary /
+client / track) BEZ ZMIAN, więc analyze/topics/drafts zostają nietknięte.
+Gemini Flash na darmowym tierze — koszt ~$0. Uwaga: darmowy tier ma limity tempa,
+a dane z zapytań mogą iść na trening Google (patrz .env.example).
+
+- Ekstrakcja i grupowanie: MODEL_CHEAP (Flash).
+- Drafty na X: MODEL_DRAFTS (Flash).
+- JSON przez structured output (response_schema); gdy Gemini odrzuci schemat,
+  fallback na czysty json-mime z opisem schematu w promcie.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 
-import anthropic
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
-MODEL_CHEAP = "claude-haiku-4-5-20251001"   # ekstrakcja + tematy
-MODEL_DRAFTS = "claude-sonnet-4-6"          # drafty + fact-check
-
-# ceny $/mln tokenów (wejście/wyjście) + web search $/1000 zapytań
-PRICE = {"haiku": (1.0, 5.0), "sonnet": (3.0, 15.0)}
-WEB_SEARCH_PRICE = 10.0 / 1000
+# Modele Gemini (konfigurowalne env). Flash ma darmowy tier i dobry polski.
+MODEL_CHEAP = os.environ.get("GEMINI_MODEL_CHEAP", "gemini-2.5-flash")    # ekstrakcja + tematy
+MODEL_DRAFTS = os.environ.get("GEMINI_MODEL_DRAFTS", "gemini-2.5-flash")  # drafty
 
 _client = None
-_usage = {"haiku": [0, 0], "sonnet": [0, 0], "web_searches": 0}  # [wejście, wyjście]
+_usage = {"in": 0, "out": 0, "calls": 0}  # tokeny wejścia/wyjścia + liczba wywołań
 
 
-def track(model: str, resp) -> None:
-    """Zlicza tokeny i web searche z odpowiedzi — do orientacyjnego logu kosztów."""
-    tier = "haiku" if "haiku" in model else "sonnet"
-    u = resp.usage
-    wejscie = u.input_tokens + (getattr(u, "cache_read_input_tokens", 0) or 0) \
-        + (getattr(u, "cache_creation_input_tokens", 0) or 0)
-    _usage[tier][0] += wejscie
-    _usage[tier][1] += u.output_tokens
-    stu = getattr(u, "server_tool_use", None)
-    if stu:
-        _usage["web_searches"] += getattr(stu, "web_search_requests", 0) or 0
-
-
-def cost_summary() -> str:
-    """Orientacyjny koszt runu (górny szacunek — wejście liczone bez rabatu za cache)."""
-    total = _usage["web_searches"] * WEB_SEARCH_PRICE
-    for tier, (pin, pout) in PRICE.items():
-        total += _usage[tier][0] / 1e6 * pin + _usage[tier][1] / 1e6 * pout
-    h, s = _usage["haiku"], _usage["sonnet"]
-    return (f"~${total:.3f}  (haiku {h[0]//1000}k→{h[1]//1000}k, "
-            f"sonnet {s[0]//1000}k→{s[1]//1000}k, web search {_usage['web_searches']})")
-
-
-def client() -> anthropic.Anthropic:
+def client() -> genai.Client:
     global _client
     if _client is None:
         load_dotenv()
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            raise SystemExit("Brak ANTHROPIC_API_KEY — uzupełnij .env (instrukcja w README).")
-        _client = anthropic.Anthropic()
+        key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if not key:
+            raise SystemExit("Brak GEMINI_API_KEY — pobierz klucz z aistudio.google.com i uzupełnij .env.")
+        _client = genai.Client(api_key=key)
     return _client
 
 
-def call_json(*, model: str, system: str, user: str, schema: dict, max_tokens: int = 4096) -> dict:
-    """Wywołanie ze structured output — zwraca dict zgodny ze schematem.
+def track(model: str, resp) -> None:
+    """Zlicza tokeny z odpowiedzi — do orientacyjnego logu (Gemini free = ~$0)."""
+    u = getattr(resp, "usage_metadata", None)
+    if not u:
+        return
+    _usage["in"] += getattr(u, "prompt_token_count", 0) or 0
+    _usage["out"] += getattr(u, "candidates_token_count", 0) or 0
+    _usage["calls"] += 1
 
-    Gdy generacja dobije do limitu (stop_reason='max_tokens'), structured output
-    DOMYKA JSON do poprawnej postaci, ale wartość stringa (np. tekst draftu) jest
-    ucięta w połowie — json.loads przejdzie, a treść będzie obcięta. Dlatego przy
-    ucięciu ponawiamy z podwojonym budżetem, zamiast po cichu oddać kadłubek.
+
+def cost_summary() -> str:
+    return (f"~$0 (Gemini free tier)  — wejście {_usage['in'] // 1000}k, "
+            f"wyjście {_usage['out'] // 1000}k, wywołań {_usage['calls']}")
+
+
+# --- pomocnicze ---
+
+# klucze schematu JSON, których Gemini response_schema nie akceptuje
+_DROP_KEYS = {"additionalProperties", "$schema", "$id", "default"}
+
+
+def _clean_schema(node):
+    """Przycina schemat do postaci strawnej dla Gemini (usuwa additionalProperties itd.)."""
+    if isinstance(node, dict):
+        return {k: _clean_schema(v) for k, v in node.items() if k not in _DROP_KEYS}
+    if isinstance(node, list):
+        return [_clean_schema(x) for x in node]
+    return node
+
+
+def _text(resp) -> str:
+    """Bezpiecznie wyciąga tekst (resp.text potrafi rzucić przy blokadzie/pustej odpowiedzi)."""
+    try:
+        if resp.text:
+            return resp.text
+    except Exception:
+        pass
+    out = []
+    for c in getattr(resp, "candidates", None) or []:
+        content = getattr(c, "content", None)
+        for p in getattr(content, "parts", None) or []:
+            if getattr(p, "text", None):
+                out.append(p.text)
+    return "".join(out)
+
+
+def _truncated(resp) -> bool:
+    """Czy odpowiedź ucięta na limicie tokenów (odpowiednik Claude stop_reason=max_tokens)."""
+    for c in getattr(resp, "candidates", None) or []:
+        fr = getattr(c, "finish_reason", None)
+        if fr is not None and getattr(fr, "name", str(fr)) == "MAX_TOKENS":
+            return True
+    return False
+
+
+def _loads(text: str) -> dict:
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        m = re.search(r"\{.*\}", text, re.DOTALL)  # ratunek, gdyby model dodał fence/tekst
+        if m:
+            return json.loads(m.group(0))
+        raise
+
+
+def _generate(model: str, system: str, user: str, max_tokens: int, schema=None):
+    kwargs = dict(system_instruction=system, max_output_tokens=max_tokens)
+    if schema is not None:
+        kwargs["response_mime_type"] = "application/json"
+        kwargs["response_schema"] = schema
+    cfg = types.GenerateContentConfig(**kwargs)
+    return client().models.generate_content(model=model, contents=user, config=cfg)
+
+
+def call_json(*, model: str, system: str, user: str, schema: dict, max_tokens: int = 4096) -> dict:
+    """Structured output -> dict zgodny ze schematem.
+
+    Przy ucięciu (MAX_TOKENS) ponawia z podwojonym budżetem (żeby nie oddać
+    kadłubka). Gdyby Gemini odrzucił schemat, fallback: czysty json-mime z opisem
+    schematu doklejonym do promptu.
     """
-    text = "{}"
+    gschema = _clean_schema(schema)
+    resp = None
     for _ in range(2):
-        resp = client().messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            output_config={"format": {"type": "json_schema", "schema": schema}},
-            messages=[{"role": "user", "content": user}],
-        )
+        try:
+            resp = _generate(model, system, user, max_tokens, schema=gschema)
+        except Exception:  # najczęściej: schemat nie do przełknięcia przez Gemini
+            hint = user + "\n\nZwróć WYŁĄCZNIE poprawny JSON zgodny ze schematem:\n" \
+                + json.dumps(gschema, ensure_ascii=False)
+            resp = client().models.generate_content(
+                model=model, contents=hint,
+                config=types.GenerateContentConfig(
+                    system_instruction=system, max_output_tokens=max_tokens,
+                    response_mime_type="application/json"),
+            )
         track(model, resp)
-        text = next(b.text for b in resp.content if b.type == "text")
-        if resp.stop_reason != "max_tokens":
+        if not _truncated(resp):
             break
         max_tokens *= 2  # ucięte — spróbuj jeszcze raz z większym budżetem
-    return json.loads(text)
+    return _loads(_text(resp))
 
 
 def call_text(*, model: str, system: str, user: str, max_tokens: int = 2048) -> str:
-    """Zwykłe wywołanie tekstowe (drafty)."""
-    resp = client().messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-        messages=[{"role": "user", "content": user}],
-    )
+    """Zwykłe wywołanie tekstowe."""
+    resp = _generate(model, system, user, max_tokens)
     track(model, resp)
-    return next(b.text for b in resp.content if b.type == "text")
+    return _text(resp).strip()
