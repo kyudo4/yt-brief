@@ -1,7 +1,7 @@
 # Dzienny brief — ma być GOTOWY przed 8:00 Europe/Warsaw.
 # Cron 04:30 UTC = 06:30 latem (CEST) / 05:30 zimą (CET). Start z zapasem, bo:
 #  - GitHub Actions bywa opóźniony 5-15 min,
-#  - pełny obieg (analiza + fact-check web search + deploy z retry) trwa ~10-20 min.
+#  - pełny obieg (analiza + drafty + deploy z retry) trwa ~10-20 min.
 # Dzięki temu w obu porach roku brief jest gotowy ok. 7:00, na spokojnie przed 8:00.
 # UWAGA (2026-07-04): sonda test-transcript pokazała blokadę auto-napisów na IP Actions
 # (1/3). Czy brief będzie miał treść, potwierdzi pierwszy poranny run — jeśli pusty,
