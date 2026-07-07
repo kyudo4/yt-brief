@@ -12,6 +12,11 @@ on:
   schedule:
     - cron: "30 4 * * *"
   workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: "Ile dni wstecz brać filmy (domyślnie 3; np. 7 by dociągnąć zaległości)"
+        required: false
+        default: "3"
 
 permissions:
   contents: write
@@ -42,6 +47,7 @@ jobs:
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          YT_BRIEF_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '3' }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SITE_URL: ${{ secrets.SITE_URL }}
