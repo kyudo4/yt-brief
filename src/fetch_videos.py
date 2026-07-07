@@ -115,7 +115,11 @@ def fetch_new(conn, window_hours: int = WINDOW_HOURS) -> list[dict]:
         ).execute().get("items", [])
 
         for v in details:
-            duration_s = parse_duration(v["contentDetails"]["duration"])
+            dur = v["contentDetails"].get("duration")  # brak dla live/premier
+            if not dur:
+                print(f"  - pomijam (brak długości, live/premiera?): {v['snippet']['title'][:55]}")
+                continue
+            duration_s = parse_duration(dur)
             if not passes_filter(duration_s):
                 print(f"  - odfiltrowany ({duration_s}s): {v['snippet']['title'][:60]}")
                 continue
