@@ -147,3 +147,36 @@ def call_text(*, model: str, system: str, user: str, max_tokens: int = 2048) -> 
     resp = _generate(model, system, user, max_tokens)
     track(model, resp)
     return _text(resp).strip()
+
+
+def call_json_video(*, model: str, system: str, user: str, schema: dict, video_url: str,
+                    max_tokens: int = 8000) -> dict:
+    """Ekstrakcja wprost z FILMU YouTube — Gemini 'ogląda' URL, więc omijamy blokadę
+    pobierania transkrypcji z IP chmury (Google pobiera film u siebie).
+
+    Niska rozdzielczość (~100 tokenów/s filmu) i WYŁĄCZONE myślenie (thinking_budget=0),
+    żeby nie przepalać budżetu darmowego tieru. Przy ucięciu ponawia z większym limitem.
+    """
+    gschema = _clean_schema(schema)
+    resp = None
+    for _ in range(2):
+        resp = client().models.generate_content(
+            model=model,
+            contents=types.Content(parts=[
+                types.Part(file_data=types.FileData(file_uri=video_url)),
+                types.Part(text=user),
+            ]),
+            config=types.GenerateContentConfig(
+                system_instruction=system,
+                max_output_tokens=max_tokens,
+                response_mime_type="application/json",
+                response_schema=gschema,
+                media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
+            ),
+        )
+        track(model, resp)
+        if not _truncated(resp):
+            break
+        max_tokens *= 2
+    return _loads(_text(resp))

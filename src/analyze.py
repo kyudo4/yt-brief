@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from . import db, llm
 
-MAX_TRANSCRIPT_CHARS = 80_000  # ~30k tokenów; Haiku ma 200k kontekstu
+MAX_TRANSCRIPT_CHARS = 80_000  # ~30k tokenów przy ścieżce tekstowej
+# Film >2h to ~700k+ tokenów w jednym zapytaniu — pomijamy, żeby nie oberwać
+# rate-limitem darmowego tieru Gemini na pojedynczym gigancie.
+MAX_VIDEO_S = 7200
 
 EXTRACT_SCHEMA = {
     "type": "object",
@@ -82,31 +85,82 @@ w poziomy_wg_kanalu. Liczby z transkrypcji to zawsze opinia kanału, nigdy fakt 
   tickerów po sensie i kontekście. Nie zostawiaj literówek w nazwach własnych ani obcojęzycznych
   wtrętów (pisz po polsku)."""
 
+SYSTEM_VIDEO = """Jesteś analitykiem treści finansowych. OGLĄDASZ film z YouTube \
+(krypto/makro/akcje, zwykle po angielsku lub polsku).
+
+Twoje zadanie: wyciągnij strukturalny wyciąg zgodny ze schematem. Zasady:
+- Pisz po polsku, zwięźle, bez lania wody.
+- Tezy to opinie i argumenty AUTORA filmu, nie twoje.
+- ciekawostki to serce wyciągu — nieoczywiste, konkretne rzeczy, które robią z filmu wartościowy
+  materiał na wpis: unikalne dane, zaskakujące mechanizmy, mocne/kontrariańskie opinie, smaczki.
+  Pomijaj oczywistości i ogólniki. Lepiej 2 mocne ciekawostki niż 5 pustych.
+- KLUCZOWE: każdą liczbę, poziom cenowy czy prognozę wypowiedzianą w filmie umieść \
+w poziomy_wg_kanalu. Liczby z filmu to zawsze opinia kanału, nigdy fakt rynkowy.
+- Cytaty bierz dosłownie z wypowiedzi; timestamp podaj jako [mm:ss] z momentu, gdy padają.
+- Tickery normalizuj do wielkich liter (BTC, ETH, MU, DXY, SPX, GOLD). Nazwy własne (projekty,
+  giełdy, osoby) pisz poprawnie."""
+
+
+def _is_rate_limit(e) -> bool:
+    s = str(e).lower()
+    return any(k in s for k in ("resource_exhausted", "429", "quota", "rate limit", "exhausted"))
+
 
 def run(conn) -> dict:
-    """Analizuje wszystkie filmy o statusie 'transcribed'."""
-    stats = {"ok": 0, "error": 0}
-    for v in db.videos_by_status(conn, "transcribed"):
+    """Robi wyciągi z niezanalizowanych filmów. Jeśli jest transkrypcja — analiza z tekstu
+    (tania ścieżka, głównie lokalnie). Jeśli nie ma (blokada IP w chmurze) — Gemini ogląda
+    sam FILM z URL. Przy limicie darmowego tieru przerywa i zostawia resztę na kolejny run."""
+    stats = {"ok": 0, "video": 0, "error": 0, "skip": 0}
+    seen, pending = set(), []
+    for status in ("transcribed", "new"):  # 'transcribed' = tekst, 'new' = blokada -> wideo
+        for v in db.videos_by_status(conn, status):
+            if v["video_id"] not in seen:
+                seen.add(v["video_id"])
+                pending.append(v)
+    pending.sort(key=lambda v: v.get("published_at") or "", reverse=True)  # najnowsze pierwsze
+
+    rl_streak = 0  # ile rate-limitów z rzędu (3 = pewnie wyczerpany dzienny limit)
+    for v in pending:
         vid = v["video_id"]
-        t = db.get_transcript(conn, vid)
-        user = (
-            f"Kanał: {v['channel_name']}\nTytuł: {v['title']}\n"
-            f"Transkrypcja ({t['lang']}, {'auto' if t['generated'] else 'ręczne'} napisy):\n\n"
-            + t["text"][:MAX_TRANSCRIPT_CHARS]
-        )
         try:
-            data = llm.call_json(
-                model=llm.MODEL_CHEAP, system=SYSTEM, user=user,
-                schema=EXTRACT_SCHEMA, max_tokens=3000,
-            )
+            t = db.get_transcript(conn, vid)
+        except Exception:
+            t = None
+        try:
+            if t and t.get("text"):
+                user = (f"Kanał: {v['channel_name']}\nTytuł: {v['title']}\n"
+                        f"Transkrypcja ({t['lang']}, {'auto' if t['generated'] else 'ręczne'} napisy):\n\n"
+                        + t["text"][:MAX_TRANSCRIPT_CHARS])
+                data = llm.call_json(model=llm.MODEL_CHEAP, system=SYSTEM, user=user,
+                                     schema=EXTRACT_SCHEMA, max_tokens=3000)
+                src = ""
+            else:
+                if (v.get("duration_s") or 0) > MAX_VIDEO_S:
+                    print(f"  - pomijam (>{MAX_VIDEO_S // 3600}h, za długi na video-URL): {v['title'][:45]}")
+                    stats["skip"] += 1
+                    continue
+                user = (f"Kanał: {v['channel_name']}\nTytuł: {v['title']}\n"
+                        "Wyciąg pisz po polsku.")
+                data = llm.call_json_video(model=llm.MODEL_CHEAP, system=SYSTEM_VIDEO, user=user,
+                                           schema=EXTRACT_SCHEMA, video_url=v["url"], max_tokens=8000)
+                src = " [z filmu]"
+                stats["video"] += 1
         except Exception as e:
-            print(f"  ! błąd analizy {vid}: {type(e).__name__}: {e}")
+            if _is_rate_limit(e):
+                rl_streak += 1
+                print(f"  ! limit Gemini na {vid} (z rzędu: {rl_streak})")
+                if rl_streak >= 3:
+                    print("  ! 3x limit z rzędu — kończę analizę, reszta w kolejnym runie")
+                    break
+                continue  # pojedynczy film (pewnie za długi) — pomiń, próbuj dalej
+            print(f"  ! błąd analizy {vid}: {type(e).__name__}: {str(e)[:120]}")
             db.set_video_status(conn, vid, "error", f"analyze: {e}")
             stats["error"] += 1
             continue
+        rl_streak = 0  # sukces resetuje licznik limitów
         db.save_extract(conn, vid, data, model=llm.MODEL_CHEAP)
-        print(f"  + wyciąg [{v['channel_name']}] sentyment={data['sentyment']:+d} "
-              f"tickery={','.join(data['tickery'][:5])} — {v['title'][:50]}")
+        print(f"  + wyciąg{src} [{v['channel_name']}] sentyment={data['sentyment']:+d} "
+              f"tickery={','.join(data['tickery'][:5])} — {v['title'][:45]}")
         stats["ok"] += 1
     return stats
 
