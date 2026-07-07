@@ -117,7 +117,7 @@ def run(conn) -> dict:
             if v["video_id"] not in seen:
                 seen.add(v["video_id"])
                 pending.append(v)
-    pending.sort(key=lambda v: v.get("published_at") or "", reverse=True)  # najnowsze pierwsze
+    pending.sort(key=lambda v: v["published_at"] or "", reverse=True)  # najnowsze pierwsze
 
     rl_streak = 0  # ile rate-limitów z rzędu (3 = pewnie wyczerpany dzienny limit)
     for v in pending:
@@ -127,7 +127,7 @@ def run(conn) -> dict:
         except Exception:
             t = None
         try:
-            if t and t.get("text"):
+            if t and t["text"]:
                 user = (f"Kanał: {v['channel_name']}\nTytuł: {v['title']}\n"
                         f"Transkrypcja ({t['lang']}, {'auto' if t['generated'] else 'ręczne'} napisy):\n\n"
                         + t["text"][:MAX_TRANSCRIPT_CHARS])
@@ -135,7 +135,7 @@ def run(conn) -> dict:
                                      schema=EXTRACT_SCHEMA, max_tokens=3000)
                 src = ""
             else:
-                if (v.get("duration_s") or 0) > MAX_VIDEO_S:
+                if (v["duration_s"] or 0) > MAX_VIDEO_S:
                     print(f"  - pomijam (>{MAX_VIDEO_S // 3600}h, za długi na video-URL): {v['title'][:45]}")
                     stats["skip"] += 1
                     continue
