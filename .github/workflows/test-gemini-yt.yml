@@ -1,0 +1,56 @@
+# Sonda: czy Gemium potrafi "obejrzeć" film z URL YouTube (omijając blokadę
+# transkrypcji na IP Actions) i ile tokenów to zżera na darmowym tierze.
+# Uruchom ręcznie: Actions -> test-gemini-yt -> Run workflow. Nie rusza bazy ani strony.
+name: test-gemini-yt
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "google-genai>=1.0"
+      - name: Sonda Gemini na URL YouTube
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os, time
+          from google import genai
+          from google.genai import types
+
+          client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+          # 33-minutowy film, dziś zablokowany dla youtube-transcript-api na IP Actions:
+          url = "https://www.youtube.com/watch?v=Y6WMMr0vX4M"
+          prompt = "Wypisz 5 najważniejszych tez tego filmu po polsku, każda w jednym zdaniu."
+
+          for res in ("MEDIA_RESOLUTION_LOW", "MEDIA_RESOLUTION_MEDIUM"):
+              print(f"\n=== rozdzielczość {res} ===")
+              t0 = time.time()
+              try:
+                  resp = client.models.generate_content(
+                      model="gemini-2.5-flash",
+                      contents=types.Content(parts=[
+                          types.Part(file_data=types.FileData(file_uri=url)),
+                          types.Part(text=prompt),
+                      ]),
+                      config=types.GenerateContentConfig(
+                          max_output_tokens=600,
+                          media_resolution=getattr(types.MediaResolution, res),
+                      ),
+                  )
+                  u = resp.usage_metadata
+                  print(f"OK w {time.time()-t0:.0f}s — tokeny wejścia: {u.prompt_token_count}, wyjścia: {u.candidates_token_count}")
+                  fr = resp.candidates[0].finish_reason if resp.candidates else None
+                  print("finish_reason:", getattr(fr, "name", fr))
+                  print("--- fragment ---")
+                  print((resp.text or "")[:900])
+              except Exception as e:
+                  print(f"BŁĄD po {time.time()-t0:.0f}s:", type(e).__name__)
+                  print(str(e)[:900])
+              break  # najpierw tylko LOW; MEDIUM tylko gdyby LOW zawiodło (odkomentuj)
+          PY
