@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 
 from dotenv import load_dotenv
 from google import genai
@@ -135,17 +136,25 @@ def call_json(*, model: str, system: str, user: str, schema: dict, max_tokens: i
     gschema = _clean_schema(schema)
     resp = None
     for _ in range(2):
-        try:
-            resp = _generate(model, system, user, max_tokens, schema=gschema)
-        except Exception:  # najczęściej: schemat nie do przełknięcia przez Gemini
-            hint = user + "\n\nZwróć WYŁĄCZNIE poprawny JSON zgodny ze schematem:\n" \
-                + json.dumps(gschema, ensure_ascii=False)
-            resp = client().models.generate_content(
-                model=model, contents=hint,
-                config=types.GenerateContentConfig(
-                    system_instruction=system, max_output_tokens=max_tokens,
-                    response_mime_type="application/json"),
-            )
+        for attempt in range(4):
+            try:
+                resp = _generate(model, system, user, max_tokens, schema=gschema)
+                break
+            except Exception as e:
+                if _is_rate_limit(e) and not _is_daily_limit(e) and attempt < 3:
+                    time.sleep(35)  # limit tokenów/min — przeczekaj i ponów
+                    continue
+                if _is_rate_limit(e):
+                    raise  # dobowy — fallback nic nie da
+                # nie-limit (najczęściej schemat) — fallback json-mime bez response_schema
+                hint = user + "\n\nZwróć WYŁĄCZNIE poprawny JSON zgodny ze schematem:\n" \
+                    + json.dumps(gschema, ensure_ascii=False)
+                resp = client().models.generate_content(
+                    model=model, contents=hint,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system, max_output_tokens=max_tokens,
+                        response_mime_type="application/json"))
+                break
         track(model, resp)
         if not _truncated(resp):
             break
@@ -160,32 +169,57 @@ def call_text(*, model: str, system: str, user: str, max_tokens: int = 2048) -> 
     return _text(resp).strip()
 
 
+# Darmowy tier: 250k tokenów WEJŚCIA na minutę. Film w niskiej rozdzielczości to
+# ~100 tok/s, więc >~40 min = >250k w jednym zapytaniu = zawsze 429. Przycinamy do
+# pierwszych ~33 min (200k, z zapasem) — to i tak łapie główne tezy filmu.
+VIDEO_CLIP_S = 2000
+
+
+def _is_rate_limit(e) -> bool:
+    s = str(e).lower()
+    return "429" in s or "resource_exhausted" in s or "quota" in s
+
+
+def _is_daily_limit(e) -> bool:
+    # limit dobowy (nie do przeczekania) vs na minutę (do przeczekania)
+    return "perday" in str(e).lower().replace("_", "")
+
+
 def call_json_video(*, model: str, system: str, user: str, schema: dict, video_url: str,
                     max_tokens: int = 8000) -> dict:
     """Ekstrakcja wprost z FILMU YouTube — Gemini 'ogląda' URL, więc omijamy blokadę
     pobierania transkrypcji z IP chmury (Google pobiera film u siebie).
 
-    Niska rozdzielczość (~100 tokenów/s filmu) i WYŁĄCZONE myślenie (thinking_budget=0),
-    żeby nie przepalać budżetu darmowego tieru. Przy ucięciu ponawia z większym limitem.
+    Niska rozdzielczość + wyłączone myślenie + przycięcie do ~33 min (limit tokenów/min).
+    Przy limicie NA MINUTĘ przeczekuje i ponawia; przy DOBOWYM od razu rzuca (analyze
+    zostawi resztę na kolejny run). Przy ucięciu odpowiedzi ponawia z większym budżetem.
     """
     gschema = _clean_schema(schema)
+    part_video = types.Part(
+        file_data=types.FileData(file_uri=video_url),
+        video_metadata=types.VideoMetadata(end_offset=f"{VIDEO_CLIP_S}s"),
+    )
     resp = None
     for _ in range(2):
-        resp = client().models.generate_content(
-            model=model,
-            contents=types.Content(parts=[
-                types.Part(file_data=types.FileData(file_uri=video_url)),
-                types.Part(text=user),
-            ]),
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                max_output_tokens=max_tokens,
-                response_mime_type="application/json",
-                response_schema=gschema,
-                media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW,
-                thinking_config=types.ThinkingConfig(thinking_budget=0),  # 2.5-flash: myślenie off
-            ),
+        cfg = types.GenerateContentConfig(
+            system_instruction=system, max_output_tokens=max_tokens,
+            response_mime_type="application/json", response_schema=gschema,
+            media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
         )
+        for attempt in range(4):
+            try:
+                resp = client().models.generate_content(
+                    model=model,
+                    contents=types.Content(parts=[part_video, types.Part(text=user)]),
+                    config=cfg,
+                )
+                break
+            except Exception as e:
+                if _is_rate_limit(e) and not _is_daily_limit(e) and attempt < 3:
+                    time.sleep(35)  # limit tokenów/min odświeża się co minutę
+                    continue
+                raise
         track(model, resp)
         if not _truncated(resp):
             break

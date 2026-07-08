@@ -31,9 +31,10 @@ def main() -> int:
     print(f"      {astats}")
 
     print("[5/8] tematy dnia...")
-    # Okno grupowania szersze niż domyślne 24h: kanały publikują nierówno, a dedup
+    # Domyślnie okno 24h (użytkownik chce tylko najświeższe filmy); dedup
     # (extracts_for_date pomija filmy z wcześniejszych briefów) chroni przed powtórkami.
-    lookback = int(os.environ.get("YT_BRIEF_LOOKBACK_DAYS", "3"))
+    # Szersze okno tylko ręcznie przez env, gdyby trzeba było nadrobić zaległości.
+    lookback = int(os.environ.get("YT_BRIEF_LOOKBACK_DAYS", "1"))
     topic_ids = topics.group(conn, today, lookback_days=lookback)
     print(f"      tematów: {len(topic_ids)} (okno {lookback} dni)")
 
