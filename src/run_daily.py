@@ -37,6 +37,12 @@ def main() -> int:
     lookback = int(os.environ.get("YT_BRIEF_LOOKBACK_DAYS", "1"))
     topic_ids = topics.group(conn, today, lookback_days=lookback)
     print(f"      tematów: {len(topic_ids)} (okno {lookback} dni)")
+    if not topic_ids:
+        # Zero tematów (np. wyczerpany limit LLM albo cisza na kanałach) — NIE ruszamy
+        # strony: lepiej zostawić wczorajszy pełny brief niż opublikować pusty.
+        print("      brak nowych tematów — zostawiam wczorajszy brief, kończę bez przebudowy")
+        print(f"koszt API (orientacyjnie): {llm.cost_summary()}")
+        return 0
 
     print("[6/8] twarde dane + wykresy...")
     market_data.enrich_topics(conn, topic_ids, today)
