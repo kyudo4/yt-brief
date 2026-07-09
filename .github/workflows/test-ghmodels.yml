@@ -3,6 +3,11 @@ name: test-ghmodels
 
 on:
   workflow_dispatch:
+    inputs:
+      models:
+        description: "Lista modeli do sprawdzenia (przecinkami)"
+        required: false
+        default: "openai/gpt-4.1,openai/gpt-4o"
 
 permissions:
   models: read
@@ -14,6 +19,7 @@ jobs:
       - name: Wywołanie GPT-4.1 przez GitHub Models
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODELS: ${{ github.event.inputs.models || 'openai/gpt-4.1,openai/gpt-4o' }}
         run: |
           python - <<'PY'
           import json, os, urllib.request
@@ -43,6 +49,6 @@ jobs:
                   body = getattr(e, "read", lambda: b"")()
                   print(f"BŁĄD {model}: {type(e).__name__} {getattr(e,'code','')} {body[:400]}")
 
-          for m in ("openai/gpt-4.1", "openai/gpt-4o"):
-              call(m)
+          for m in os.environ["MODELS"].split(","):
+              call(m.strip())
           PY
