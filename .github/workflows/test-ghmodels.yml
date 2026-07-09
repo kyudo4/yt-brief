@@ -1,0 +1,48 @@
+# Sonda: czy GITHUB_TOKEN w Actions może wołać GitHub Models (darmowe GPT-4.1 itd.).
+name: test-ghmodels
+
+on:
+  workflow_dispatch:
+
+permissions:
+  models: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wywołanie GPT-4.1 przez GitHub Models
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request
+
+          def call(model):
+              req = urllib.request.Request(
+                  "https://models.github.ai/inference/chat/completions",
+                  data=json.dumps({
+                      "model": model,
+                      "messages": [
+                          {"role": "system", "content": "Odpowiadasz po polsku, jednym zdaniem."},
+                          {"role": "user", "content": "Napisz jedno chłodne, sceptyczne zdanie o rynku krypto."},
+                      ],
+                      "max_tokens": 60,
+                  }).encode(),
+                  headers={
+                      "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                      "Content-Type": "application/json",
+                      "Accept": "application/vnd.github+json",
+                  }, method="POST")
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as r:
+                      d = json.load(r)
+                  print(f"OK {model}: {d['choices'][0]['message']['content']!r}")
+                  print(f"   usage: {d.get('usage')}")
+              except Exception as e:
+                  body = getattr(e, "read", lambda: b"")()
+                  print(f"BŁĄD {model}: {type(e).__name__} {getattr(e,'code','')} {body[:400]}")
+
+          for m in ("openai/gpt-4.1", "openai/gpt-4o"):
+              call(m)
+          PY
