@@ -22,13 +22,16 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-# Modele Gemini (konfigurowalne env). Darmowe pule są PER MODEL (zweryfikowane sondą
-# test-model 2026-07-09): 2.5-flash ~20 zapytań/dobę, 2.5-flash-lite osobna (większa) pula,
-# 2.5-pro i 2.0-flash mają limit 0 (niedostępne za darmo na tym koncie).
-# Podział: ekstrakcja faktów z filmów -> lite (własna pula, wystarczy do wyciągów),
-# tematy + drafty -> flash (najmocniejszy darmowy, z myśleniem) z CAŁĄ pulą 20/dobę.
-MODEL_CHEAP = os.environ.get("GEMINI_MODEL_CHEAP", "gemini-2.5-flash-lite")  # ekstrakcja
-MODEL_DRAFTS = os.environ.get("GEMINI_MODEL_DRAFTS", "gemini-2.5-flash")     # tematy + drafty
+# TRZY niezależne darmowe pule, żeby nic się nie zapychało (zweryfikowane sondami 2026-07-09):
+# 1. Gemini 2.5-flash-lite — ekstrakcja z filmów (tylko Gemini umie YouTube z URL).
+# 2. GitHub Models GPT-4.1 (prefix "github:") — tematy + drafty; darmowe na koncie GitHub,
+#    w Actions działa na wbudowanym GITHUB_TOKEN (permissions: models: read). Lepszy polski
+#    i ton niż Flash. Osobna pula GitHuba, niezależna od Gemini.
+# 3. Gemini 2.5-flash (~20/dobę) — FALLBACK dla tematów/draftów, gdy GitHub odmówi.
+# (2.5-pro i 2.0-flash mają na tym koncie darmowy limit 0 — nie używać.)
+MODEL_CHEAP = os.environ.get("GEMINI_MODEL_CHEAP", "gemini-2.5-flash-lite")   # ekstrakcja
+MODEL_DRAFTS = os.environ.get("GEMINI_MODEL_DRAFTS", "github:openai/gpt-4.1")  # tematy + drafty
+MODEL_FALLBACK = os.environ.get("GEMINI_MODEL_FALLBACK", "gemini-2.5-flash")   # awaryjny
 
 _client = None
 _usage = {"in": 0, "out": 0, "calls": 0}  # tokeny wejścia/wyjścia + liczba wywołań
@@ -56,7 +59,7 @@ def track(model: str, resp) -> None:
 
 
 def cost_summary() -> str:
-    return (f"~$0 (Gemini free tier)  — wejście {_usage['in'] // 1000}k, "
+    return (f"~$0 (darmowe pule: Gemini + GitHub Models)  — wejście {_usage['in'] // 1000}k, "
             f"wyjście {_usage['out'] // 1000}k, wywołań {_usage['calls']}")
 
 
@@ -119,6 +122,41 @@ def _loads(text: str) -> dict:
         raise
 
 
+# --- GitHub Models (darmowe GPT na koncie GitHub; w Actions token wbudowany) ---
+
+GH_MODELS_URL = "https://models.github.ai/inference/chat/completions"
+
+
+def _github_chat(model: str, system: str, user: str, max_tokens: int, schema=None) -> str:
+    """Jedno wywołanie GitHub Models (model = 'github:openai/gpt-4.1').
+    Ze schematem używa strict json_schema (nasze schematy mają additionalProperties=false
+    i pełne required, czyli dokładnie to, czego strict wymaga)."""
+    import urllib.request
+    token = os.environ.get("GH_MODELS_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if not token:
+        raise RuntimeError("brak GITHUB_TOKEN dla GitHub Models")
+    body = {
+        "model": model.split(":", 1)[1],
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": user}],
+        "max_tokens": min(max_tokens, 4000),  # darmowy tier ogranicza wyjście
+    }
+    if schema is not None:
+        body["response_format"] = {"type": "json_schema", "json_schema": {
+            "name": "wynik", "strict": True, "schema": schema}}
+    req = urllib.request.Request(
+        GH_MODELS_URL, data=json.dumps(body).encode(), method="POST",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+                 "Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req, timeout=180) as r:
+        d = json.load(r)
+    u = d.get("usage") or {}
+    _usage["in"] += u.get("prompt_tokens", 0)
+    _usage["out"] += u.get("completion_tokens", 0)
+    _usage["calls"] += 1
+    return d["choices"][0]["message"]["content"]
+
+
 def _generate(model: str, system: str, user: str, max_tokens: int, schema=None):
     kwargs = dict(system_instruction=system, max_output_tokens=max_tokens)
     if schema is not None:
@@ -135,6 +173,15 @@ def call_json(*, model: str, system: str, user: str, schema: dict, max_tokens: i
     kadłubka). Gdyby Gemini odrzucił schemat, fallback: czysty json-mime z opisem
     schematu doklejonym do promptu.
     """
+    # GitHub Models: jedna próba (strict schema); każda odmowa => fallback na Gemini,
+    # który ma niżej własne retry. Dzięki temu drafty nie zależą od jednej puli.
+    if model.startswith("github:"):
+        try:
+            return _loads(_github_chat(model, system, user, max_tokens, schema=schema))
+        except Exception as e:
+            print(f"  ~ GitHub Models odmówił ({type(e).__name__}) — fallback na {MODEL_FALLBACK}")
+            model = MODEL_FALLBACK
+
     gschema = _clean_schema(schema)
     resp = None
     for _ in range(2):
@@ -166,6 +213,12 @@ def call_json(*, model: str, system: str, user: str, schema: dict, max_tokens: i
 
 def call_text(*, model: str, system: str, user: str, max_tokens: int = 2048) -> str:
     """Zwykłe wywołanie tekstowe."""
+    if model.startswith("github:"):
+        try:
+            return _github_chat(model, system, user, max_tokens).strip()
+        except Exception as e:
+            print(f"  ~ GitHub Models odmówił ({type(e).__name__}) — fallback na {MODEL_FALLBACK}")
+            model = MODEL_FALLBACK
     resp = _generate(model, system, user, max_tokens)
     track(model, resp)
     return _text(resp).strip()
