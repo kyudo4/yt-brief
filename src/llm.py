@@ -1,14 +1,13 @@
-"""Wspólna warstwa wywołań LLM — Google Gemini (darmowy tier).
+"""Wspólna warstwa wywołań LLM — ŁAŃCUCHY darmowych modeli z automatycznym failoverem.
 
-Migracja z Claude: interfejs (call_json / call_text / MODEL_* / cost_summary /
-client / track) BEZ ZMIAN, więc analyze/topics/drafts zostają nietknięte.
-Gemini Flash na darmowym tierze — koszt ~$0. Uwaga: darmowy tier ma limity tempa,
-a dane z zapytań mogą iść na trening Google (patrz .env.example).
+Zasada: każde zadanie ma uporządkowaną listę darmowych modeli. Gdy model odmawia
+(limit dobowy, awaria, odrzucony schemat), wywołanie samo schodzi na następny w łańcuchu.
+Prefiks "github:" = GitHub Models (wbudowany token Actions), reszta = Gemini.
 
-- Ekstrakcja i grupowanie: MODEL_CHEAP (Flash).
-- Drafty na X: MODEL_DRAFTS (Flash).
-- JSON przez structured output (response_schema); gdy Gemini odrzuci schemat,
-  fallback na czysty json-mime z opisem schematu w promcie.
+Pule są niezależne per model/dostawca (zweryfikowane sondami 2026-07-09):
+- Gemini 2.5-flash ~20 zapytań/dobę, 2.5-flash-lite osobna pula; pro i 2.0-flash limit 0.
+- GitHub Models (gpt-4.1, gpt-4o, ...) — osobne pule na koncie GitHub.
+Ekstrakcja z FILMÓW (YouTube URL) działa wyłącznie na modelach Gemini.
 """
 
 from __future__ import annotations
@@ -22,16 +21,35 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-# TRZY niezależne darmowe pule, żeby nic się nie zapychało (zweryfikowane sondami 2026-07-09):
-# 1. Gemini 2.5-flash-lite — ekstrakcja z filmów (tylko Gemini umie YouTube z URL).
-# 2. GitHub Models GPT-4.1 (prefix "github:") — tematy + drafty; darmowe na koncie GitHub,
-#    w Actions działa na wbudowanym GITHUB_TOKEN (permissions: models: read). Lepszy polski
-#    i ton niż Flash. Osobna pula GitHuba, niezależna od Gemini.
-# 3. Gemini 2.5-flash (~20/dobę) — FALLBACK dla tematów/draftów, gdy GitHub odmówi.
-# (2.5-pro i 2.0-flash mają na tym koncie darmowy limit 0 — nie używać.)
-MODEL_CHEAP = os.environ.get("GEMINI_MODEL_CHEAP", "gemini-2.5-flash-lite")   # ekstrakcja
-MODEL_DRAFTS = os.environ.get("GEMINI_MODEL_DRAFTS", "github:openai/gpt-4.1")  # tematy + drafty
-MODEL_FALLBACK = os.environ.get("GEMINI_MODEL_FALLBACK", "gemini-2.5-flash")   # awaryjny
+# Łańcuch draftów/tematów: najlepszy pisarz najpierw, potem kolejne darmowe pule.
+CHAIN_DRAFTS = [m.strip() for m in os.environ.get(
+    "LLM_CHAIN_DRAFTS",
+    "github:openai/gpt-4.1,github:openai/gpt-4o,github:openai/gpt-4.1-mini,"
+    "gemini-2.5-flash,gemini-2.5-flash-lite").split(",") if m.strip()]
+# Łańcuch ekstrakcji (musi być Gemini — czytanie wideo z URL umie tylko Gemini):
+CHAIN_EXTRACT = [m.strip() for m in os.environ.get(
+    "LLM_CHAIN_EXTRACT", "gemini-2.5-flash-lite,gemini-2.5-flash").split(",") if m.strip()]
+# Łańcuch grupowania tematów: DUŻY payload (kilkanaście wyciągów) nie mieści się
+# w limicie wejścia darmowego GitHub Models (~8k tokenów), więc Gemini najpierw.
+CHAIN_TOPICS = [m.strip() for m in os.environ.get(
+    "LLM_CHAIN_TOPICS",
+    "gemini-2.5-flash,gemini-2.5-flash-lite,github:openai/gpt-4.1-mini").split(",") if m.strip()]
+
+# Etykiety zgodne ze starym interfejsem — call sites podają llm.MODEL_*,
+# a _chain() rozwija je w pełny łańcuch failoveru.
+MODEL_CHEAP = CHAIN_EXTRACT[0]
+MODEL_DRAFTS = CHAIN_DRAFTS[0]
+MODEL_TOPICS = CHAIN_TOPICS[0]
+
+
+def _chain(model: str) -> list[str]:
+    if model == MODEL_DRAFTS:
+        return CHAIN_DRAFTS
+    if model == MODEL_TOPICS:
+        return CHAIN_TOPICS
+    if model == MODEL_CHEAP:
+        return CHAIN_EXTRACT
+    return [model]
 
 _client = None
 _usage = {"in": 0, "out": 0, "calls": 0}  # tokeny wejścia/wyjścia + liczba wywołań
@@ -131,6 +149,7 @@ def _github_chat(model: str, system: str, user: str, max_tokens: int, schema=Non
     """Jedno wywołanie GitHub Models (model = 'github:openai/gpt-4.1').
     Ze schematem używa strict json_schema (nasze schematy mają additionalProperties=false
     i pełne required, czyli dokładnie to, czego strict wymaga)."""
+    import urllib.error
     import urllib.request
     token = os.environ.get("GH_MODELS_TOKEN") or os.environ.get("GITHUB_TOKEN")
     if not token:
@@ -148,8 +167,11 @@ def _github_chat(model: str, system: str, user: str, max_tokens: int, schema=Non
         GH_MODELS_URL, data=json.dumps(body).encode(), method="POST",
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
                  "Accept": "application/vnd.github+json"})
-    with urllib.request.urlopen(req, timeout=180) as r:
-        d = json.load(r)
+    try:
+        with urllib.request.urlopen(req, timeout=180) as r:
+            d = json.load(r)
+    except urllib.error.HTTPError as e:  # dołącz treść błędu do logu failoveru
+        raise RuntimeError(f"GitHub Models HTTP {e.code}: {e.read()[:200]!r}") from e
     u = d.get("usage") or {}
     _usage["in"] += u.get("prompt_tokens", 0)
     _usage["out"] += u.get("completion_tokens", 0)
@@ -166,22 +188,10 @@ def _generate(model: str, system: str, user: str, max_tokens: int, schema=None):
     return client().models.generate_content(model=model, contents=user, config=cfg)
 
 
-def call_json(*, model: str, system: str, user: str, schema: dict, max_tokens: int = 4096) -> dict:
-    """Structured output -> dict zgodny ze schematem.
-
-    Przy ucięciu (MAX_TOKENS) ponawia z podwojonym budżetem (żeby nie oddać
-    kadłubka). Gdyby Gemini odrzucił schemat, fallback: czysty json-mime z opisem
-    schematu doklejonym do promptu.
-    """
-    # GitHub Models: jedna próba (strict schema); każda odmowa => fallback na Gemini,
-    # który ma niżej własne retry. Dzięki temu drafty nie zależą od jednej puli.
-    if model.startswith("github:"):
-        try:
-            return _loads(_github_chat(model, system, user, max_tokens, schema=schema))
-        except Exception as e:
-            print(f"  ~ GitHub Models odmówił ({type(e).__name__}) — fallback na {MODEL_FALLBACK}")
-            model = MODEL_FALLBACK
-
+def _gemini_json(model: str, system: str, user: str, schema: dict, max_tokens: int) -> dict:
+    """Jedno zadanie JSON na konkretnym modelu Gemini: retry na limicie minutowym,
+    fallback json-mime przy odrzuconym schemacie, podwojenie budżetu przy ucięciu.
+    Limit DOBOWY rzuca wyjątkiem — decyzję o zmianie modelu podejmuje call_json."""
     gschema = _clean_schema(schema)
     resp = None
     for _ in range(2):
@@ -194,7 +204,7 @@ def call_json(*, model: str, system: str, user: str, schema: dict, max_tokens: i
                     time.sleep(35)  # limit tokenów/min — przeczekaj i ponów
                     continue
                 if _is_rate_limit(e):
-                    raise  # dobowy — fallback nic nie da
+                    raise  # dobowy — niech przejmie następny model w łańcuchu
                 # nie-limit (najczęściej schemat) — fallback json-mime bez response_schema
                 hint = user + "\n\nZwróć WYŁĄCZNIE poprawny JSON zgodny ze schematem:\n" \
                     + json.dumps(gschema, ensure_ascii=False)
@@ -211,17 +221,35 @@ def call_json(*, model: str, system: str, user: str, schema: dict, max_tokens: i
     return _loads(_text(resp))
 
 
-def call_text(*, model: str, system: str, user: str, max_tokens: int = 2048) -> str:
-    """Zwykłe wywołanie tekstowe."""
-    if model.startswith("github:"):
+def call_json(*, model: str, system: str, user: str, schema: dict, max_tokens: int = 4096) -> dict:
+    """Structured output -> dict zgodny ze schematem, z failoverem po łańcuchu
+    darmowych modeli: gdy jeden odmawia (limit/awaria), próbuje następnego."""
+    last = None
+    for m in _chain(model):
         try:
-            return _github_chat(model, system, user, max_tokens).strip()
+            if m.startswith("github:"):
+                return _loads(_github_chat(m, system, user, max_tokens, schema=schema))
+            return _gemini_json(m, system, user, schema, max_tokens)
         except Exception as e:
-            print(f"  ~ GitHub Models odmówił ({type(e).__name__}) — fallback na {MODEL_FALLBACK}")
-            model = MODEL_FALLBACK
-    resp = _generate(model, system, user, max_tokens)
-    track(model, resp)
-    return _text(resp).strip()
+            print(f"  ~ {m} odmówił ({type(e).__name__}: {str(e)[:100]}) — próbuję następny w łańcuchu")
+            last = e
+    raise last
+
+
+def call_text(*, model: str, system: str, user: str, max_tokens: int = 2048) -> str:
+    """Zwykłe wywołanie tekstowe, z failoverem po łańcuchu jak call_json."""
+    last = None
+    for m in _chain(model):
+        try:
+            if m.startswith("github:"):
+                return _github_chat(m, system, user, max_tokens).strip()
+            resp = _generate(m, system, user, max_tokens)
+            track(m, resp)
+            return _text(resp).strip()
+        except Exception as e:
+            print(f"  ~ {m} odmówił ({type(e).__name__}: {str(e)[:100]}) — próbuję następny w łańcuchu")
+            last = e
+    raise last
 
 
 # Darmowy tier: 250k tokenów WEJŚCIA na minutę. Film w niskiej rozdzielczości to
@@ -240,15 +268,9 @@ def _is_daily_limit(e) -> bool:
     return "perday" in str(e).lower().replace("_", "")
 
 
-def call_json_video(*, model: str, system: str, user: str, schema: dict, video_url: str,
-                    max_tokens: int = 8000) -> dict:
-    """Ekstrakcja wprost z FILMU YouTube — Gemini 'ogląda' URL, więc omijamy blokadę
-    pobierania transkrypcji z IP chmury (Google pobiera film u siebie).
-
-    Niska rozdzielczość + wyłączone myślenie + przycięcie do ~33 min (limit tokenów/min).
-    Przy limicie NA MINUTĘ przeczekuje i ponawia; przy DOBOWYM od razu rzuca (analyze
-    zostawi resztę na kolejny run). Przy ucięciu odpowiedzi ponawia z większym budżetem.
-    """
+def _gemini_video_json(model: str, system: str, user: str, schema: dict,
+                       video_url: str, max_tokens: int) -> dict:
+    """Jedna ekstrakcja z filmu na konkretnym modelu Gemini (retry minutowy w środku)."""
     gschema = _clean_schema(schema)
     part_video = types.Part(
         file_data=types.FileData(file_uri=video_url),
@@ -280,3 +302,23 @@ def call_json_video(*, model: str, system: str, user: str, schema: dict, video_u
             break
         max_tokens *= 2
     return _loads(_text(resp))
+
+
+def call_json_video(*, model: str, system: str, user: str, schema: dict, video_url: str,
+                    max_tokens: int = 8000) -> dict:
+    """Ekstrakcja wprost z FILMU YouTube — Gemini 'ogląda' URL, więc omijamy blokadę
+    pobierania transkrypcji z IP chmury (Google pobiera film u siebie).
+
+    Failover po łańcuchu ekstrakcji (modele GitHub pomijane — wideo umie tylko Gemini).
+    Niska rozdzielczość + myślenie off + przycięcie do ~33 min (limit tokenów/min).
+    """
+    last = None
+    for m in _chain(model):
+        if m.startswith("github:"):
+            continue  # GitHub Models nie czyta YouTube z URL
+        try:
+            return _gemini_video_json(m, system, user, schema, video_url, max_tokens)
+        except Exception as e:
+            print(f"  ~ {m} odmówił przy wideo ({type(e).__name__}: {str(e)[:100]}) — próbuję następny")
+            last = e
+    raise last

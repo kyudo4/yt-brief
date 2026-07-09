@@ -108,7 +108,7 @@ def group(conn, date: str, lookback_days: int = 1) -> list[int]:
         for e in extracts
     ]
     result = llm.call_json(
-        model=llm.MODEL_DRAFTS, system=SYSTEM_GROUP,  # mocny model: dobór tematów decyduje o jakości briefu
+        model=llm.MODEL_TOPICS, system=SYSTEM_GROUP,  # duży payload -> łańcuch Gemini (GitHub ma ~8k limit wejścia)
         user=json.dumps(payload, ensure_ascii=False),
         schema=TOPICS_SCHEMA, max_tokens=8000,
     )
