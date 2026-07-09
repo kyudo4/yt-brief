@@ -35,7 +35,12 @@ def main() -> int:
     # (extracts_for_date pomija filmy z wcześniejszych briefów) chroni przed powtórkami.
     # Szersze okno tylko ręcznie przez env, gdyby trzeba było nadrobić zaległości.
     lookback = int(os.environ.get("YT_BRIEF_LOOKBACK_DAYS", "1"))
-    topic_ids = topics.group(conn, today, lookback_days=lookback)
+    try:
+        topic_ids = topics.group(conn, today, lookback_days=lookback)
+    except Exception as e:
+        # Najczęściej wyczerpana pula LLM — wyciągi są już zapisane, dokończymy jutro.
+        print(f"      ! grupowanie nieudane ({type(e).__name__}) — zostawiam wczorajszy brief")
+        topic_ids = []
     print(f"      tematów: {len(topic_ids)} (okno {lookback} dni)")
     if not topic_ids:
         # Zero tematów (np. wyczerpany limit LLM albo cisza na kanałach) — NIE ruszamy

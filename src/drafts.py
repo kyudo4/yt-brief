@@ -84,6 +84,15 @@ EMOJI I FORMA (jak w przykładach autora):
   punktów listy konkretów, $TICKER przy tokenach, sporadyczny 🤔/👀/xD dla tonu.
 - Wyliczanki z bulletami (•/🔹) OK, gdy to realna lista faktów/liczb; nie sztuczne 1/2/3.
 
+ZAKAZANE (ton influencera — autor tak NIE pisze, złamanie dyskwalifikuje draft):
+- Retoryczne pytajniki-clickbaity: "Lipiec = pump? Sierpień = rekt?", "Co na to rynek?",
+  "Czy to koniec?". Zamiast pytać — POWIEDZ, co z faktów wynika.
+- Puste hype-frazy: "To nie żart", "szykuje się coś dużego", "musisz to wiedzieć",
+  "gamechanger", wykrzykniki nabijające emocje.
+- Więcej niż JEDNO emoji akcentujące na tweet (poza bulletami list).
+- Egzaltacja i przymilanie się do czytelnika. Ton autora jest chłodny, rzeczowy,
+  sceptyczny — jak analityk, który widział już trzy cykle, nie jak sprzedawca kursów.
+
 POPRAWNOŚĆ:
 - Popraw ewidentnie przekręcone nazwy własne i tickery z materiału (Ono→Ondo, Círcle→Circle itp.).
   Nie przepisuj literówek z auto-napisów do wpisu.

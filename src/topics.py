@@ -108,7 +108,7 @@ def group(conn, date: str, lookback_days: int = 1) -> list[int]:
         for e in extracts
     ]
     result = llm.call_json(
-        model=llm.MODEL_CHEAP, system=SYSTEM_GROUP,
+        model=llm.MODEL_DRAFTS, system=SYSTEM_GROUP,  # mocny model: dobór tematów decyduje o jakości briefu
         user=json.dumps(payload, ensure_ascii=False),
         schema=TOPICS_SCHEMA, max_tokens=8000,
     )
@@ -198,7 +198,7 @@ def _update_intro(related: dict, t: dict) -> str:
                        "kto_co_mowi": [k["stanowisko"] for k in t["kto_co_mowi"]],
                        "konsensus_rozjazdy": t["konsensus_rozjazdy"]}}, ensure_ascii=False)
     try:
-        return llm.call_text(model=llm.MODEL_CHEAP, system=SYSTEM_UPDATE, user=user, max_tokens=500)
+        return llm.call_text(model=llm.MODEL_DRAFTS, system=SYSTEM_UPDATE, user=user, max_tokens=500)
     except Exception as e:
         print(f"  ! nie udało się wygenerować aktualizacji: {e}")
         return t["tlo"]

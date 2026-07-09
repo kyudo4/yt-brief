@@ -22,11 +22,13 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-# Modele Gemini (konfigurowalne env). 2.5-flash to jedyny model z darmowym tierem
-# na tym koncie (2.0-flash ma limit 0). Darmowy limit 2.5-flash: ~20 zapytań/dobę —
-# starcza na normalny dzień (kilka filmów), przy zaległościach analyze dzieli na kilka dni.
-MODEL_CHEAP = os.environ.get("GEMINI_MODEL_CHEAP", "gemini-2.5-flash")    # ekstrakcja + tematy
-MODEL_DRAFTS = os.environ.get("GEMINI_MODEL_DRAFTS", "gemini-2.5-flash")  # drafty
+# Modele Gemini (konfigurowalne env). Darmowe pule są PER MODEL (zweryfikowane sondą
+# test-model 2026-07-09): 2.5-flash ~20 zapytań/dobę, 2.5-flash-lite osobna (większa) pula,
+# 2.5-pro i 2.0-flash mają limit 0 (niedostępne za darmo na tym koncie).
+# Podział: ekstrakcja faktów z filmów -> lite (własna pula, wystarczy do wyciągów),
+# tematy + drafty -> flash (najmocniejszy darmowy, z myśleniem) z CAŁĄ pulą 20/dobę.
+MODEL_CHEAP = os.environ.get("GEMINI_MODEL_CHEAP", "gemini-2.5-flash-lite")  # ekstrakcja
+MODEL_DRAFTS = os.environ.get("GEMINI_MODEL_DRAFTS", "gemini-2.5-flash")     # tematy + drafty
 
 _client = None
 _usage = {"in": 0, "out": 0, "calls": 0}  # tokeny wejścia/wyjścia + liczba wywołań
