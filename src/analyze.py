@@ -13,11 +13,10 @@ MAX_TRANSCRIPT_CHARS = 80_000  # ~30k tokenów przy ścieżce tekstowej
 # Film >2h to ~700k+ tokenów w jednym zapytaniu — pomijamy, żeby nie oberwać
 # rate-limitem darmowego tieru Gemini na pojedynczym gigancie.
 MAX_VIDEO_S = 7200
-# Darmowy tier 2.5-flash to ~20 zapytań/dobę; grupowanie + aktualizacje + drafty
-# potrzebują ~8-10, więc ekstrakcje twardo limitujemy — DRAFTY MAJĄ PRIORYTET
-# (2026-07-09: przy 10 ekstrakcjach pula skończyła się w połowie draftów).
-# Reszta zaległości i tak dojdzie kolejnego dnia.
-MAX_EXTRACTIONS_PER_RUN = 8
+# Po rozdzieleniu pul (ekstrakcja=lite, tematy=flash/lite, drafty=GitHub) ekstrakcja
+# nie konkuruje już z draftami o limity. 12 pokrywa ruchliwe dni (2026-07-10: 12 pełnych
+# filmów, bezpiecznik 8 uciął dwa); nadwyżka i tak przechodzi na kolejny run.
+MAX_EXTRACTIONS_PER_RUN = 12
 
 EXTRACT_SCHEMA = {
     "type": "object",

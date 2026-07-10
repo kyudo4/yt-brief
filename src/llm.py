@@ -21,11 +21,14 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-# Łańcuch draftów/tematów: najlepszy pisarz najpierw, potem kolejne darmowe pule.
+# Łańcuch draftów: najlepszy pisarz najpierw, potem kolejne darmowe pule.
+# Każdy model na GitHub Models ma WŁASNĄ pulę; błędny/wycofany ID nie szkodzi —
+# failover po prostu przechodzi dalej. Kolejność = jakość polszczyzny i tonu.
 CHAIN_DRAFTS = [m.strip() for m in os.environ.get(
     "LLM_CHAIN_DRAFTS",
-    "github:openai/gpt-4.1,github:openai/gpt-4o,github:openai/gpt-4.1-mini,"
-    "gemini-2.5-flash,gemini-2.5-flash-lite").split(",") if m.strip()]
+    "github:openai/gpt-4.1,github:openai/gpt-4o,github:deepseek/DeepSeek-V3-0324,"
+    "github:mistral-ai/Mistral-Large-2411,github:openai/gpt-4.1-mini,"
+    "github:meta/Llama-3.3-70B-Instruct,gemini-2.5-flash,gemini-2.5-flash-lite").split(",") if m.strip()]
 # Łańcuch ekstrakcji (musi być Gemini — czytanie wideo z URL umie tylko Gemini):
 CHAIN_EXTRACT = [m.strip() for m in os.environ.get(
     "LLM_CHAIN_EXTRACT", "gemini-2.5-flash-lite,gemini-2.5-flash").split(",") if m.strip()]
@@ -154,15 +157,21 @@ def _github_chat(model: str, system: str, user: str, max_tokens: int, schema=Non
     token = os.environ.get("GH_MODELS_TOKEN") or os.environ.get("GITHUB_TOKEN")
     if not token:
         raise RuntimeError("brak GITHUB_TOKEN dla GitHub Models")
+    gh_model = model.split(":", 1)[1]
     body = {
-        "model": model.split(":", 1)[1],
+        "model": gh_model,
         "messages": [{"role": "system", "content": system},
                      {"role": "user", "content": user}],
         "max_tokens": min(max_tokens, 4000),  # darmowy tier ogranicza wyjście
     }
     if schema is not None:
-        body["response_format"] = {"type": "json_schema", "json_schema": {
-            "name": "wynik", "strict": True, "schema": schema}}
+        if gh_model.startswith("openai/"):
+            body["response_format"] = {"type": "json_schema", "json_schema": {
+                "name": "wynik", "strict": True, "schema": schema}}
+        else:  # DeepSeek/Grok/Mistral/Llama: strict json_schema nieobsługiwany — schemat w promptcie
+            body["messages"][1]["content"] = user + \
+                "\n\nZwróć WYŁĄCZNIE poprawny JSON (bez markdown) zgodny ze schematem:\n" + \
+                json.dumps(schema, ensure_ascii=False)
     req = urllib.request.Request(
         GH_MODELS_URL, data=json.dumps(body).encode(), method="POST",
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json",
@@ -221,6 +230,15 @@ def _gemini_json(model: str, system: str, user: str, schema: dict, max_tokens: i
     return _loads(_text(resp))
 
 
+def _require(out: dict, schema: dict) -> dict:
+    """Pilnuje kontraktu: brak wymaganych pól = wyjątek = failover do następnego modelu
+    (chroni przed kadłubkiem z modeli bez strict json_schema)."""
+    missing = [k for k in schema.get("required", []) if k not in out]
+    if missing:
+        raise ValueError(f"model pominął wymagane pola: {missing}")
+    return out
+
+
 def call_json(*, model: str, system: str, user: str, schema: dict, max_tokens: int = 4096) -> dict:
     """Structured output -> dict zgodny ze schematem, z failoverem po łańcuchu
     darmowych modeli: gdy jeden odmawia (limit/awaria), próbuje następnego."""
@@ -228,8 +246,8 @@ def call_json(*, model: str, system: str, user: str, schema: dict, max_tokens: i
     for m in _chain(model):
         try:
             if m.startswith("github:"):
-                return _loads(_github_chat(m, system, user, max_tokens, schema=schema))
-            return _gemini_json(m, system, user, schema, max_tokens)
+                return _require(_loads(_github_chat(m, system, user, max_tokens, schema=schema)), schema)
+            return _require(_gemini_json(m, system, user, schema, max_tokens), schema)
         except Exception as e:
             print(f"  ~ {m} odmówił ({type(e).__name__}: {str(e)[:100]}) — próbuję następny w łańcuchu")
             last = e
