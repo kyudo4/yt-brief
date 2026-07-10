@@ -13,6 +13,10 @@ on:
         description: "Ile dni wstecz brać filmy (domyślnie 1 = ostatnie 24h)"
         required: false
         default: "1"
+      topics_chain:
+        description: "Override łańcucha tematów (np. github:... by oszczędzić pulę Gemini)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -46,6 +50,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GH_MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           YT_BRIEF_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '1' }}
+          LLM_CHAIN_TOPICS: ${{ github.event.inputs.topics_chain }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SITE_URL: ${{ secrets.SITE_URL }}

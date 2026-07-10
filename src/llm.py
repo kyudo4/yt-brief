@@ -21,22 +21,26 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+def _chain_env(var: str, default: str) -> list[str]:
+    """Łańcuch modeli z env; PUSTA wartość (np. niewypełniony input workflow) = domyślny."""
+    raw = os.environ.get(var) or default
+    out = [m.strip() for m in raw.split(",") if m.strip()]
+    return out or [m.strip() for m in default.split(",") if m.strip()]
+
+
 # Łańcuch draftów: najlepszy pisarz najpierw, potem kolejne darmowe pule.
 # Każdy model na GitHub Models ma WŁASNĄ pulę; błędny/wycofany ID nie szkodzi —
 # failover po prostu przechodzi dalej. Kolejność = jakość polszczyzny i tonu.
-CHAIN_DRAFTS = [m.strip() for m in os.environ.get(
-    "LLM_CHAIN_DRAFTS",
+CHAIN_DRAFTS = _chain_env("LLM_CHAIN_DRAFTS",
     "github:openai/gpt-4.1,github:openai/gpt-4o,github:deepseek/DeepSeek-V3-0324,"
     "github:mistral-ai/Mistral-Large-2411,github:openai/gpt-4.1-mini,"
-    "github:meta/Llama-3.3-70B-Instruct,gemini-2.5-flash,gemini-2.5-flash-lite").split(",") if m.strip()]
+    "github:meta/Llama-3.3-70B-Instruct,gemini-2.5-flash,gemini-2.5-flash-lite")
 # Łańcuch ekstrakcji (musi być Gemini — czytanie wideo z URL umie tylko Gemini):
-CHAIN_EXTRACT = [m.strip() for m in os.environ.get(
-    "LLM_CHAIN_EXTRACT", "gemini-2.5-flash-lite,gemini-2.5-flash").split(",") if m.strip()]
+CHAIN_EXTRACT = _chain_env("LLM_CHAIN_EXTRACT", "gemini-2.5-flash-lite,gemini-2.5-flash")
 # Łańcuch grupowania tematów: DUŻY payload (kilkanaście wyciągów) nie mieści się
 # w limicie wejścia darmowego GitHub Models (~8k tokenów), więc Gemini najpierw.
-CHAIN_TOPICS = [m.strip() for m in os.environ.get(
-    "LLM_CHAIN_TOPICS",
-    "gemini-2.5-flash,gemini-2.5-flash-lite,github:openai/gpt-4.1-mini").split(",") if m.strip()]
+CHAIN_TOPICS = _chain_env("LLM_CHAIN_TOPICS",
+    "gemini-2.5-flash,gemini-2.5-flash-lite,github:openai/gpt-4.1-mini")
 
 # Etykiety zgodne ze starym interfejsem — call sites podają llm.MODEL_*,
 # a _chain() rozwija je w pełny łańcuch failoveru.
