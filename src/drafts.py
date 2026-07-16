@@ -58,6 +58,14 @@ CEL — realna wartość, nie banał (NAJWAŻNIEJSZE):
 - Jeśli temat to oczywistość bez kąta ("BTC spadł, na rynku strach") — zwróć pusty tekst
   (pas). Lepiej brak wpisu niż banał.
 
+BRAMKA JAKOŚCI:
+- Zanim napiszesz, sprawdź czy teza wynika wprost z dostarczonych stanowisk kanałów. Jeśli nie,
+  nie dopowiadaj jej od siebie — zwróć pusty tekst.
+- Nie zamieniaj opinii autora filmu w fakt. Przy twierdzeniu, które nie pochodzi z twardych danych,
+  użyj "wg [kanał]" albo opisz je jednoznacznie jako opinię.
+- Jeden wpis = jedna główna teza. Nie łącz w nim luźno regulacji, cen, kilku krajów i projektu tylko
+  dlatego, że pojawiły się w materiale.
+
 TYPY WPISU (dobierz do tematu):
 - Reakcja z kątem: wydarzenie + nieoczywisty komentarz, teza, sceptycyzm (jak większość przykładów).
 - Deep dive projektu: gdy temat to konkretny protokół/projekt z nowością (np. Ondo, Hyperliquid) —

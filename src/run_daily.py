@@ -8,7 +8,7 @@ import sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from . import analyze, build_site, db, drafts, fetch_videos, llm, market_data, notify, topics, transcripts
+from . import analyze, build_site, db, drafts, fetch_videos, llm, market_data, quality, topics, transcripts
 
 
 def main() -> int:
@@ -52,13 +52,13 @@ def main() -> int:
     print("[6/8] twarde dane + wykresy...")
     market_data.enrich_topics(conn, topic_ids, today)
 
-    print("[7/8] drafty na X (Sonnet) + strona...")
+    print("[7/8] drafty na X + bramka redakcyjna + strona...")
     n = drafts.generate(conn, topic_ids, today)
+    review = quality.run(conn, topic_ids, today)
     out = build_site.build(conn, today)
-    print(f"      draftów: {n}, strona: {out}")
+    print(f"      draftów: {n}, gotowe: {review['gotowe']}, do sprawdzenia: {review['do_sprawdzenia']}, strona: {out}")
 
-    print("[8/8] telegram...")
-    notify.send(conn, today)
+    print("[8/8] publikacja: wynik jest wyłącznie na stronie (bez Telegrama)")
 
     print(f"koszt API (orientacyjnie): {llm.cost_summary()}")
     return 0

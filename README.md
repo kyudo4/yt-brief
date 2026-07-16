@@ -1,9 +1,9 @@
 # yt-brief
 
 Dostarczyciel pomysłów na content: zbiera ciekawostki z kanałów YouTube
-(krypto + makro), analizuje przez Claude i codziennie oddaje **gotowe drafty
+(krypto + makro), analizuje materiały i codziennie oddaje **drafty
 wpisów na X** z podpiętym wykresem — plus ściągę "na chłopski rozum", żeby
-wiedzieć, o czym się pisze. Strona na GitHub Pages, powiadomienie na Telegram.
+wiedzieć, o czym się pisze. Wynik jest publikowany wyłącznie na stronie GitHub Pages.
 
 Kanały są głównie anglojęzyczne — transkrypcje idą po angielsku (fallback),
 ale cała analiza, ściągi i drafty powstają po polsku.
@@ -11,9 +11,9 @@ ale cała analiza, ściągi i drafty powstają po polsku.
 `telegram_sources.json` trzyma podane kanały t.me — jeszcze nie ingestowane
 (osobny moduł do zrobienia; publiczne kanały czyta się przez t.me/s/ bez API).
 
-Codziennie rano (cron 05:00 UTC = 07:00 latem / 06:00 zimą) GitHub Actions robi
-pełny obieg: nowe filmy → transkrypcje → wyciągi (Haiku) → tematy dnia → twarde
-dane + wykresy → drafty na X (Sonnet) → strona HTML → Telegram. Ten sam obieg
+Codziennie rano GitHub Actions robi pełny obieg: nowe filmy → transkrypcje →
+wyciągi → selekcja tematów → twarde dane + wykresy → drafty na X → kontrola
+redakcyjna → strona HTML. Ten sam obieg
 lokalnie: `python -m src.run_daily`.
 
 ## Zasada nr 1: liczby tylko z API
@@ -29,12 +29,6 @@ zawsze oznaczona jako „wg [kanał]" i traktowana jako opinia.
 | Sekret | Skąd |
 |---|---|
 | `YOUTUBE_API_KEY` | [console.cloud.google.com](https://console.cloud.google.com) → nowy projekt → "APIs & Services" → włącz **YouTube Data API v3** → Credentials → Create API key |
-| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/settings/keys) → Create Key |
-| `TELEGRAM_BOT_TOKEN` | Telegram → napisz do **@BotFather** → `/newbot` → skopiuj token |
-| `TELEGRAM_CHAT_ID` | napisz do **@userinfobot** (twój prywatny id) albo dodaj bota do grupy i odczytaj id z `https://api.telegram.org/bot<TOKEN>/getUpdates` |
-
-Ważne: napisz najpierw cokolwiek do swojego bota (np. `/start`), inaczej nie
-będzie mógł wysyłać ci wiadomości.
 
 ### 2. Lokalnie
 
@@ -49,7 +43,7 @@ pytest                 # testy deduplikacji i filtrów
 ### 3. GitHub
 
 1. Utwórz repo, wypchnij kod.
-2. **Settings → Secrets and variables → Actions** → dodaj 4 sekrety z tabeli wyżej.
+2. **Settings → Secrets and variables → Actions** → dodaj klucze z tabeli wyżej.
 3. **Settings → Pages** → Source: *Deploy from a branch* → Branch: `main`, folder `/docs`.
 4. **Actions** → workflow `daily` → **Run workflow** (workflow_dispatch) — pierwszy testowy run.
 
@@ -75,19 +69,17 @@ podbija wagę kanału przy układaniu tematów dnia. Kategorie: `krypto`, `makro
 
 ## Koszty
 
-Jedyny płatny element: Anthropic API. Ekstrakcja i grupowanie na
-`claude-haiku-4-5-20251001`, drafty na Sonnecie tylko dla tematów, które się
-nadają. Stałe części promptów z prompt cachingiem. YouTube API, CoinGecko,
-Stooq, alternative.me, GitHub Pages/Actions — darmowe tiery.
+Pipeline korzysta z darmowych pul Gemini i GitHub Models. YouTube API,
+CoinGecko, Stooq, alternative.me i GitHub Pages/Actions mają darmowe tiery.
 
 ## Struktura
 
 ```
 channels.json         # kanały do śledzenia
 style_examples.json   # wzorce twojego stylu na X (TODO: uzupełnij!)
-src/                  # pipeline (fetch → transcripts → analyze → topics → site → notify)
+src/                  # pipeline (fetch → transcripts → analyze → topics → drafts → quality → site)
 templates/            # Jinja2 + CSS
 data/brief.db         # SQLite (commitowana)
 docs/                 # wygenerowana strona (GitHub Pages)
-.github/workflows/    # cron 05:00 UTC (07:00 CEST) + ręczny trigger
+.github/workflows/    # codzienny cron + ręczny trigger
 ```

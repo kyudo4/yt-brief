@@ -51,9 +51,6 @@ jobs:
           GH_MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           YT_BRIEF_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '1' }}
           LLM_CHAIN_TOPICS: ${{ github.event.inputs.topics_chain }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          SITE_URL: ${{ secrets.SITE_URL }}
           WEBSHARE_PROXY_USERNAME: ${{ secrets.WEBSHARE_PROXY_USERNAME }}
           WEBSHARE_PROXY_PASSWORD: ${{ secrets.WEBSHARE_PROXY_PASSWORD }}
         run: python -m src.run_daily
@@ -82,8 +79,6 @@ jobs:
         uses: actions/deploy-pages@v4
 
       # Fallback hostingu: konto ma blokadę deployów GitHub Pages (stan 2026-07-03).
-      # Krok aktywuje się sam po dodaniu sekretów NETLIFY_AUTH_TOKEN + NETLIFY_SITE_ID
-      # (wtedy ustaw też SITE_URL na adres netlify, żeby Telegram linkował dobrze).
       - name: Deploy na Netlify (opcjonalny fallback)
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
