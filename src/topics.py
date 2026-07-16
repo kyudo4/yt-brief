@@ -23,7 +23,7 @@ TOPICS_SCHEMA = {
                 "additionalProperties": False,
                 "required": ["tytul", "zajawka", "o_co_chodzi", "tlo", "keywords", "tickery",
                              "kto_co_mowi", "konsensus_rozjazdy", "wniosek", "nadaje_sie_na_x",
-                             "potrzebne_dane", "horyzont"],
+                             "potrzebne_dane", "horyzont", "priorytet"],
                 "properties": {
                     "tytul": {"type": "string", "description": "krótki nagłówek tematu"},
                     "zajawka": {"type": "string", "description": "JEDNO zdanie do Telegrama, zrozumiałe bez kontekstu"},
@@ -53,6 +53,7 @@ TOPICS_SCHEMA = {
                                        "description": "z listy: btc, eth, dominacja_btc, fear_greed, dxy, mu, spx, gold, oil. Dodaj ticker/dane TYLKO gdy temat jest WPROST o cenie, ruchu lub poziomie tego aktywa. Temat o modelu biznesowym, technologii, migracji, przejęciu, regulacji czy narracji — NAWET jeśli wspomina BTC/ETH — daje PUSTĄ listę (cena BTC nic nie wnosi do wpisu o tym, że górnicy przechodzą na AI). W razie wątpliwości: pusta lista."},
                     "horyzont": {"type": "string", "enum": ["krotki", "dlugi"],
                                  "description": "rama czasowa TEZY (steruje interwałem wykresu): 'krotki' = o bieżącym ruchu, dni/tygodnie (np. reakcja na dane, dzisiejszy wybicie); 'dlugi' = teza strukturalna/wieloletnia (cykl 4-letni, halving, zmiana reżimu waluty, trend na lata). Cykliczny/strukturalny temat MUSI mieć 'dlugi', żeby wykres pokazał kilka lat, a nie ostatni miesiąc szumu."},
+                    "priorytet": {"type": "integer", "description": "Ocena 1-5: nowość, moc tezy, jakość źródeł i dopasowanie do konta. 5 = obowiązkowy temat dnia. Daj 1-2 tylko materiałom, które należy odrzucić."},
                 },
             },
         },
@@ -69,14 +70,16 @@ Zasady:
 zaskakujący ruch, ukryty powód, konsekwencja której inni nie widzą, sprzeczność w narracji. \
 Odrzucaj generyczne newsy bez kąta ("cena spadła", "ktoś coś ogłosił") — chyba że jest do nich \
 nieoczywisty komentarz. Priorytet: krypto, makro (stopy, ropa, dolar, inflacja), akcje.
-- 2-6 tematów; lepiej 3 mocne i nieoczywiste niż 6 płytkich. Nie twórz tematu z każdej pierdoły, \
+- 1-3 tematy; lepiej 2 mocne i nieoczywiste niż 6 płytkich. Nie twórz tematu z każdej pierdoły, \
 ale nie sklejaj na siłę różnych spraw.
 - Kanały z wyższym weight ważniejsze przy wyborze tematów.
 - Tło pisz tak, żeby wprowadzić czytelnika OD ZERA, prostym językiem.
 - W kto_co_mowi używaj DOKŁADNYCH video_id z wyciągów i timestampów z cytatów.
 - NIE podawaj żadnych liczb rynkowych jako faktów. Liczby z wyciągów przywołuj wyłącznie \
 z dopiskiem "wg [nazwa kanału]" — to opinie. Twarde dane dołoży system z API.
-- nadaje_sie_na_x = true tylko gdy temat ma potencjał na ciekawą opinię, nie suchy news."""
+- nadaje_sie_na_x = true tylko gdy temat ma potencjał na ciekawą opinię, nie suchy news.
+- priorytet oceniaj surowo. Materiał z jednego kanału może wejść, ale tylko gdy ma konkretną,
+  sprawdzalną tezę i link do odpowiedniego fragmentu."""
 
 SYSTEM_UPDATE = """Piszesz sekcję "Aktualizacja — co się zmieniło od wczoraj" w dziennym briefie \
 rynkowym po polsku. Dostajesz wczorajszą kartę tematu i dzisiejszy stan tematu. Napisz 2-4 zdania: \
@@ -115,7 +118,11 @@ def group(conn, date: str, lookback_days: int = 1) -> list[int]:
 
     by_vid = {e["video_id"]: e for e in extracts}
     topic_ids = []
-    for t in result["tematy"]:
+    # Nie publikujemy "wypełniaczy". Model wybiera kandydatów, a tu zostają tylko
+    # materiały z realnym potencjałem redakcyjnym; maksymalnie trzy na dzień.
+    selected = [t for t in result["tematy"] if t["nadaje_sie_na_x"] and t.get("priorytet", 0) >= 3]
+    selected.sort(key=lambda t: (t.get("priorytet", 0), len(t.get("kto_co_mowi", []))), reverse=True)
+    for t in selected[:3]:
         related = db.find_related_topic(conn, t["keywords"], t["tickery"], before_date=date)
         card = _build_card(t, by_vid, related, date)
         tid = db.save_topic(

@@ -28,6 +28,9 @@ nav a { margin-left: 10px; }
 .teaser { color: var(--muted); }
 .badge { background: var(--accent); color: #000; border-radius: 6px; font-size: 0.7rem; padding: 1px 6px; margin: 0 4px; vertical-align: middle; }
 .badge.upd { background: var(--link); }
+.badge.review { background: #4caf78; color: #08130d; }
+.badge.review.sprawdz { background: #f0b75e; color: #241a05; }
+.badge.review.blokada { background: #e26d6d; color: #240707; }
 
 .topic { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 20px 0; }
 .lead { color: var(--muted); margin-top: 0; }
@@ -35,6 +38,10 @@ nav a { margin-left: 10px; }
 .draft { background: var(--card2); border: 1px solid var(--accent); border-radius: 10px; padding: 12px; margin: 12px 0; }
 .draft-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .draft pre { white-space: pre-wrap; font: inherit; margin: 0; }
+.review-box { margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; font-size: .86rem; background: #163224; color: #d7f4e1; }
+.review-box.sprawdz { background: #372b12; color: #ffe4a4; }
+.review-box.blokada { background: #3b1b1b; color: #ffd1d1; }
+.review-box ul { margin: 5px 0 0; padding-left: 18px; }
 .no-draft { color: var(--muted); font-style: italic; }
 .attach { margin-top: 10px; font-size: 0.9rem; color: var(--muted); }
 .attach img { display: block; margin-top: 6px; }

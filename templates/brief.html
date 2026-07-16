@@ -21,6 +21,7 @@
   {% for t in topics %}
     <li><a href="#temat-{{ t.id }}">{{ t.title }}</a>
         {% if t.card.draft_x %}<span class="badge">draft</span>{% endif %}
+        {% if t.card.redakcja %}<span class="badge review {{ t.card.redakcja.status }}">{{ t.card.redakcja.etykieta }}</span>{% endif %}
         {% if t.card.aktualizacja %}<span class="badge upd">aktualizacja</span>{% endif %}
         — <span class="teaser">{{ t.teaser }}</span></li>
   {% endfor %}
@@ -39,6 +40,12 @@
       <strong>✍️ Draft na X</strong>
       <button class="copy" data-copy="draft-{{ t.id }}">Kopiuj draft</button>
     </div>
+    {% if c.redakcja %}
+    <div class="review-box {{ c.redakcja.status }}">
+      <strong>Kontrola redakcyjna: {{ c.redakcja.etykieta }}</strong>
+      {% if c.redakcja.uwagi %}<ul>{% for u in c.redakcja.uwagi %}<li>{{ u }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endif %}
     <pre id="draft-{{ t.id }}">{{ c.draft_x.tekst }}</pre>
     {% if c.kto_co_mowi %}
     <div class="draft-source">🎬 Z filmów:
@@ -128,7 +135,7 @@
 {% endfor %}
 {% endif %}
 
-<footer>yt-brief · liczby w kartach pochodzą z API (CoinGecko, Yahoo, alternative.me); poziomy z filmów oznaczone „wg [kanał]”</footer>
+<footer>yt-brief · liczby w kartach pochodzą z API (CoinGecko, Yahoo, alternative.me); poziomy z filmów oznaczone „wg [kanał]”. Brief nie publikuje ani nie wysyła nic automatycznie — decyzja należy do Ciebie.</footer>
 
 <script>
 function fallbackCopy(text){

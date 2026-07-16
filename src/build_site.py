@@ -24,6 +24,11 @@ def _env() -> Environment:
     return Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html"]))
 
 
+def _write_html(path: Path, html: str) -> None:
+    """Nie zostawiaj białych znaków generowanych przez wcięcia Jinja."""
+    path.write_text("\n".join(line.rstrip() for line in html.splitlines()) + "\n", encoding="utf-8")
+
+
 def build(conn, date: str, docs: Path | None = None) -> Path:
     docs = docs or DOCS
     (docs / "briefs").mkdir(parents=True, exist_ok=True)
@@ -32,10 +37,8 @@ def build(conn, date: str, docs: Path | None = None) -> Path:
 
     brief_tpl = env.get_template("brief.html")
     # strona główna (prefix "") i kopia archiwalna (prefix "../")
-    (docs / "index.html").write_text(
-        brief_tpl.render(date=date, topics=topics, prefix=""), encoding="utf-8")
-    (docs / "briefs" / f"{date}.html").write_text(
-        brief_tpl.render(date=date, topics=topics, prefix="../"), encoding="utf-8")
+    _write_html(docs / "index.html", brief_tpl.render(date=date, topics=topics, prefix=""))
+    _write_html(docs / "briefs" / f"{date}.html", brief_tpl.render(date=date, topics=topics, prefix="../"))
 
     # indeks archiwum z bazy (wszystkie daty z tematami)
     rows = conn.execute(
@@ -43,8 +46,7 @@ def build(conn, date: str, docs: Path | None = None) -> Path:
         " FROM topics GROUP BY date ORDER BY date DESC"
     ).fetchall()
     dates = [{"date": r["date"], "count": r["n"], "titles": (r["titles"] or "")[:160]} for r in rows]
-    (docs / "briefs" / "index.html").write_text(
-        env.get_template("archive.html").render(dates=dates), encoding="utf-8")
+    _write_html(docs / "briefs" / "index.html", env.get_template("archive.html").render(dates=dates))
 
     shutil.copy(TEMPLATES / "style.css", docs / "style.css")
     return docs / "index.html"
