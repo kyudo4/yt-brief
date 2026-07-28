@@ -1,7 +1,6 @@
-"""Haiku: wyciągi dnia -> TEMATY DNIA (cross-kanałowo) + pamięć tematów.
+"""Wyciągi dnia -> pojedyncze pomysły na content, każdy z jednego filmu.
 
-Jeden zbiorczy call grupujący, plus (tylko dla tematów-kontynuacji) krótki call
-"co się zmieniło od wczoraj". Karta tematu powstaje tutaj w wersji tekstowej;
+Jeden zbiorczy call wybierający najlepsze tezy. Karta pomysłu powstaje tutaj w wersji tekstowej;
 twarde dane i wykresy dokłada Etap 4, drafty Etap 5.
 """
 
@@ -34,19 +33,20 @@ TOPICS_SCHEMA = {
                     "tickery": {"type": "array", "items": {"type": "string"}},
                     "kto_co_mowi": {
                         "type": "array",
+                        "maxItems": 1,
                         "items": {
                             "type": "object",
                             "additionalProperties": False,
                             "required": ["video_id", "stanowisko", "timestamp"],
                             "properties": {
                                 "video_id": {"type": "string", "description": "dokładne video_id z wyciągu"},
-                                "stanowisko": {"type": "string", "description": "1-2 zdania: co ten kanał mówi w tym temacie"},
+                                "stanowisko": {"type": "string", "description": "pełna teza tego JEDNEGO filmu: mechanizm, argument i istotny haczyk"},
                                 "timestamp": {"type": "string", "description": "timestamp mm:ss najlepszego fragmentu (z cytatów), albo 00:00"},
                             },
                         },
                     },
                     "konsensus_rozjazdy": {"type": "string",
-                                           "description": "wprost: w czym kanały się zgadzają, w czym rozjeżdżają; przy jednym kanale napisz że brak porównania"},
+                                           "description": "krótkie doprecyzowanie tezy z jednego filmu; NIE porównuj kanałów"},
                     "wniosek": {"type": "string", "description": "1-2 zdania: co z tego wynika dla rynku/portfela"},
                     "nadaje_sie_na_x": {"type": "boolean", "description": "czy temat nadaje się na draft posta na X"},
                     "potrzebne_dane": {"type": "array", "items": {"type": "string"},
@@ -61,11 +61,14 @@ TOPICS_SCHEMA = {
 }
 
 SYSTEM_GROUP = """Jesteś redaktorem dziennego briefu rynkowego (krypto + makro + akcje) po polsku. \
-Dostajesz wyciągi z dzisiejszych filmów YouTube (JSON): tezy, sentyment, tickery, cytaty, \
+Dostajesz wyciągi z dzisiejszych filmów YouTube (JSON): tezy, ciekawostki, cytaty, \
 poziomy wg kanału, wagę kanału (weight).
 
-Pogrupuj je w TEMATY DNIA — cross-kanałowo: jeśli dwa kanały mówią o tym samym, to JEDEN temat. \
+Wybierz POMYSŁY NA CONTENT. Każdy pomysł musi pochodzić z DOKŁADNIE JEDNEGO filmu. \
 Zasady:
+- ABSOLUTNY ZAKAZ ŁĄCZENIA: nie grupuj filmów cross-kanałowo, nie buduj konsensusu, nie zestawiaj
+  opinii i nie dopowiadaj jednej tezy drugim filmem. Jeden temat = jedna konkretna teza, wywód albo
+  ciekawostka z jednego video_id. W polu kto_co_mowi umieść dokładnie jeden element.
 - Wybieraj TYLKO tematy będące CIEKAWOSTKĄ lub analizą z realną wartością: nieoczywisty mechanizm,
 ukryty przepływ kapitału, zmiana zasad działania protokołu/firmy, konkretny efekt regulacji,
 sprzeczność w narracji albo konsekwencja, której inni nie widzą. Priorytet: krypto, makro i akcje.
@@ -76,17 +79,16 @@ jest nośnikiem konkretu: np. kto i jak finansuje zakupy, dlaczego mechanizm two
 wynika anomalia, co zmienia się w strukturze rynku.
 - Odrzucaj suchy news ("X ogłosił Y") bez odpowiedzi: jak to działa, kto na tym zyskuje/traci i
 dlaczego odbiorca miałby o tym pamiętać jutro.
-- 1-3 tematy; lepiej 2 naprawdę mocne niż 3 płytkie. Jeśli dziś nie ma konkretu, zwróć mniej
-tematów — nie wypełniaj briefu prognozami cenowymi. Nie twórz tematu z każdej pierdoły, ale nie
-sklejaj na siłę różnych spraw.
+- 1-3 pomysły; lepiej 2 naprawdę mocne niż 3 płytkie. Jeśli dziś nie ma konkretu, zwróć mniej
+tematów — nie wypełniaj briefu prognozami cenowymi.
 - Kanały z wyższym weight ważniejsze przy wyborze tematów.
 - Tło pisz tak, żeby wprowadzić czytelnika OD ZERA, prostym językiem.
-- W kto_co_mowi używaj DOKŁADNYCH video_id z wyciągów i timestampów z cytatów.
+- W kto_co_mowi używaj DOKŁADNEGO video_id jednego filmu i timestampu najlepszego fragmentu.
 - NIE podawaj żadnych liczb rynkowych jako faktów. Liczby z wyciągów przywołuj wyłącznie \
 z dopiskiem "wg [nazwa kanału]" — to opinie. Twarde dane dołoży system z API.
 - nadaje_sie_na_x = true tylko gdy temat ma potencjał na ciekawą opinię, nie suchy news.
-- priorytet oceniaj surowo. Materiał z jednego kanału może wejść, ale tylko gdy ma konkretną,
-  sprawdzalną tezę i link do odpowiedniego fragmentu."""
+- priorytet oceniaj surowo. Materiał może wejść tylko gdy ma konkretną, sprawdzalną tezę i link
+  do odpowiedniego fragmentu."""
 
 SYSTEM_UPDATE = """Piszesz sekcję "Aktualizacja — co się zmieniło od wczoraj" w dziennym briefie \
 rynkowym po polsku. Dostajesz wczorajszą kartę tematu i dzisiejszy stan tematu. Napisz 2-4 zdania: \
@@ -95,7 +97,7 @@ całego tła. Nie podawaj liczb rynkowych jako faktów (liczby tylko z dopiskiem
 
 
 def group(conn, date: str, lookback_days: int = 1) -> list[int]:
-    """Grupuje wyciągi dnia w tematy, zapisuje karty. Zwraca id tematów.
+    """Wybiera wyciągi dnia jako osobne pomysły, zapisuje karty. Zwraca id tematów.
     lookback_days poszerza okno źródłowe (ile dni wstecz brać filmy)."""
     extracts = db.extracts_for_date(conn, date, lookback_days=lookback_days)
     if not extracts:
@@ -127,8 +129,11 @@ def group(conn, date: str, lookback_days: int = 1) -> list[int]:
     topic_ids = []
     # Nie publikujemy "wypełniaczy". Model wybiera kandydatów, a tu zostają tylko
     # materiały z realnym potencjałem redakcyjnym; maksymalnie trzy na dzień.
-    selected = [t for t in result["tematy"] if t["nadaje_sie_na_x"] and t.get("priorytet", 0) >= 3]
-    selected.sort(key=lambda t: (t.get("priorytet", 0), len(t.get("kto_co_mowi", []))), reverse=True)
+    selected = [
+        t for t in result["tematy"]
+        if t["nadaje_sie_na_x"] and t.get("priorytet", 0) >= 3 and len(t.get("kto_co_mowi", [])) == 1
+    ]
+    selected.sort(key=lambda t: t.get("priorytet", 0), reverse=True)
     for t in selected[:3]:
         related = db.find_related_topic(conn, t["keywords"], t["tickery"], before_date=date)
         card = _build_card(t, by_vid, related, date)

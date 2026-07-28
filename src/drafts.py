@@ -74,6 +74,9 @@ BRAMKA JAKOŚCI:
   użyj "wg [kanał]" albo opisz je jednoznacznie jako opinię.
 - Jeden wpis = jedna główna teza. Nie łącz w nim luźno regulacji, cen, kilku krajów i projektu tylko
   dlatego, że pojawiły się w materiale.
+- Ten draft opiera się na JEDNYM filmie. Opowiedz jego najlepszą tezę własnymi słowami: od problemu,
+  przez mechanizm, po konsekwencję. Nie pisz "jeden kanał uważa X, drugi Y", nie buduj konsensusu i
+  nie doklejaj argumentów z innych źródeł.
 
 TYPY WPISU (dobierz do tematu):
 - Reakcja z kątem: wydarzenie + nieoczywisty komentarz, teza, sceptycyzm (jak większość przykładów).
@@ -90,9 +93,9 @@ STYL:
   (Przykłady autora bywają pisane małą literą — nie kopiuj tego, pisz ortograficznie poprawnie.)
 - Naturalny polski slang krypto (FUD, low capy, degen) jest OK — ale wpleciony w poprawne zdania.
 - DŁUGOŚĆ dopasuj do tematu: temat analityczny, deep-dive projektu albo ze sprzecznością/mechanizmem
-  → NITKA 3-5 tweetów, która rozwija argument (zarys → mechanizm → konsekwencja → puenta). Krótki
-  pojedynczy tweet tylko dla prostej reakcji/obserwacji. Przy mięsistym temacie skrócenie do jednego
-  tweeta to strata — rozwiń.
+  → NITKA 3-8 tweetów, która rozwija argument (zarys → mechanizm → konsekwencja → puenta). Krótki
+  pojedynczy tweet tylko dla prostej reakcji/obserwacji. Nie skracaj na siłę: jeśli czytelnik musi
+  rozumieć kontekst, wyjaśnij go porządnie.
 - Zawsze charakter opinii. Gdy draft brzmi jak call inwestycyjny, dodaj na końcu
   "nie jest to porada inwestycyjna" (małymi literami, naturalnie).
 
@@ -195,11 +198,10 @@ def generate(conn, topic_ids: list[int], date: str) -> int:
         user = json.dumps({
             "temat": card["naglowek"],
             "o_co_chodzi": card["o_co_chodzi"],
-            "stanowiska_kanalow": [
-                {"kanal": k["kanal"], "stanowisko": k["stanowisko"]}
+            "zrodlo_filmu": [
+                {"kanal": k["kanal"], "tytul_filmu": k.get("tytul_filmu"), "teza": k["stanowisko"]}
                 for k in card.get("kto_co_mowi", [])
             ],
-            "konsensus_rozjazdy": card.get("konsensus_rozjazdy"),
             "ciekawostki": card.get("ciekawostki", []),
             "poziomy_wg_kanalu": card.get("poziomy_wg_kanalu", []),
             "twarde_dane": [
