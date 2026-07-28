@@ -66,12 +66,19 @@ poziomy wg kanału, wagę kanału (weight).
 
 Pogrupuj je w TEMATY DNIA — cross-kanałowo: jeśli dwa kanały mówią o tym samym, to JEDEN temat. \
 Zasady:
-- Wybieraj tematy będące CIEKAWOSTKĄ lub ANALIZĄ z realną wartością: nieoczywisty mechanizm, \
-zaskakujący ruch, ukryty powód, konsekwencja której inni nie widzą, sprzeczność w narracji. \
-Odrzucaj generyczne newsy bez kąta ("cena spadła", "ktoś coś ogłosił") — chyba że jest do nich \
-nieoczywisty komentarz. Priorytet: krypto, makro (stopy, ropa, dolar, inflacja), akcje.
-- 1-3 tematy; lepiej 2 mocne i nieoczywiste niż 6 płytkich. Nie twórz tematu z każdej pierdoły, \
-ale nie sklejaj na siłę różnych spraw.
+- Wybieraj TYLKO tematy będące CIEKAWOSTKĄ lub analizą z realną wartością: nieoczywisty mechanizm,
+ukryty przepływ kapitału, zmiana zasad działania protokołu/firmy, konkretny efekt regulacji,
+sprzeczność w narracji albo konsekwencja, której inni nie widzą. Priorytet: krypto, makro i akcje.
+- TWARDY FILTR: sam ruch ceny, prognoza kierunku, analiza wykresu, sezonowość, poziomy wsparcia,
+"czy BTC/ropa/AI będzie rosnąć czy spadać", strach na rynku albo opinia o hossie/bessie — NIE są
+tematem dnia. Odrzuć je, nawet gdy mówi o nich kilka kanałów. Dopuszczaj rynek tylko wtedy, gdy
+jest nośnikiem konkretu: np. kto i jak finansuje zakupy, dlaczego mechanizm tworzy popyt, skąd
+wynika anomalia, co zmienia się w strukturze rynku.
+- Odrzucaj suchy news ("X ogłosił Y") bez odpowiedzi: jak to działa, kto na tym zyskuje/traci i
+dlaczego odbiorca miałby o tym pamiętać jutro.
+- 1-3 tematy; lepiej 2 naprawdę mocne niż 3 płytkie. Jeśli dziś nie ma konkretu, zwróć mniej
+tematów — nie wypełniaj briefu prognozami cenowymi. Nie twórz tematu z każdej pierdoły, ale nie
+sklejaj na siłę różnych spraw.
 - Kanały z wyższym weight ważniejsze przy wyborze tematów.
 - Tło pisz tak, żeby wprowadzić czytelnika OD ZERA, prostym językiem.
 - W kto_co_mowi używaj DOKŁADNYCH video_id z wyciągów i timestampów z cytatów.

@@ -29,11 +29,14 @@ EXTRACT_SCHEMA = {
                  "description": "główne tezy/argumenty autora, max 6"},
         "ciekawostki": {
             "type": "array", "items": {"type": "string"},
-            "description": "Nieoczywiste, konkretne smaczki z filmu: zaskakujące fakty, unikalne dane "
-                           "lub obserwacje, kontrariańskie/mocne opinie autora, mechanizmy 'jak to naprawdę "
-                           "działa', rzeczy których nie usłyszysz w mainstreamie. Każda to samodzielny, "
-                           "konkretny kąt — NIE ogólnik typu 'rynek jest niepewny'. Max 5. Pusta lista, "
-                           "jeśli film to sama ogólna gadka bez smaczków.",
+            "description": "Konkretne 'nie wiedziałem tego' z filmu, PO POLSKU. Każda musi zawierać "
+                           "SAM FAKT: liczbę, mechanizm, sprzeczność, zaskakujące porównanie — coś, co "
+                           "czytelnik może zacytować. ZAKAZANE meta-opisy typu 'debata na temat X', "
+                           "'analiza strategii', 'dyskusja o Y' — to nie ciekawostka, tylko spis treści; "
+                           "zamiast tego napisz KONKLUZJĘ tej debaty (np. nie 'debata czy AI osiągnie 3 bln', "
+                           "tylko 'wg X wyceny AI zakładają 14x wzrost produktywności, jak w dot-comach'). "
+                           "Priorytet: to, co kontrariańskie i policzone, nad tym, co oczywiste. "
+                           "Max 5, posortowane od najmocniejszej. Pusta lista, jeśli film to sama ogólna gadka.",
         },
         "sentyment": {"type": "integer", "enum": [-2, -1, 0, 1, 2],
                       "description": "-2 skrajnie niedźwiedzi ... +2 skrajnie byczy"},
@@ -78,8 +81,10 @@ Twoje zadanie: wyciągnij strukturalny wyciąg zgodny ze schematem. Zasady:
 - Pisz po polsku, zwięźle, bez lania wody.
 - Tezy to opinie i argumenty AUTORA, nie twoje.
 - ciekawostki to serce wyciągu — wyławiaj nieoczywiste, konkretne rzeczy, które robią z filmu
-  wartościowy materiał na wpis: unikalne dane, zaskakujące mechanizmy, mocne/kontrariańskie opinie,
-  smaczki. Pomijaj oczywistości i ogólniki. Lepiej 2 mocne ciekawostki niż 5 pustych.
+  wartościowy materiał na wpis: zmiana w działaniu protokołu lub firmy, nietypowy przepływ kapitału,
+  ukryty mechanizm, sprzeczność, decyzja regulacyjna z realnym skutkiem albo dana, która przeczy
+  popularnej narracji. Pomijaj prognozy kierunku ceny i ogólny sentyment ("BTC może rosnąć/spadać",
+  "ropa jest słaba", "AI jest w bańce") — to NIE są ciekawostki. Lepiej 2 mocne ciekawostki niż 5 pustych.
 - KLUCZOWE: każdą liczbę, poziom cenowy czy prognozę wypowiedzianą w filmie umieść \
 w poziomy_wg_kanalu. Liczby z transkrypcji to zawsze opinia kanału, nigdy fakt rynkowy.
 - Timestampy cytatów bierz z najbliższego markera [mm:ss] przed cytatem.
@@ -96,8 +101,10 @@ Twoje zadanie: wyciągnij strukturalny wyciąg zgodny ze schematem. Zasady:
 - Pisz po polsku, zwięźle, bez lania wody.
 - Tezy to opinie i argumenty AUTORA filmu, nie twoje.
 - ciekawostki to serce wyciągu — nieoczywiste, konkretne rzeczy, które robią z filmu wartościowy
-  materiał na wpis: unikalne dane, zaskakujące mechanizmy, mocne/kontrariańskie opinie, smaczki.
-  Pomijaj oczywistości i ogólniki. Lepiej 2 mocne ciekawostki niż 5 pustych.
+  materiał na wpis: zmiana w działaniu protokołu lub firmy, nietypowy przepływ kapitału, ukryty
+  mechanizm, sprzeczność, decyzja regulacyjna z realnym skutkiem albo dana przecząca popularnej
+  narracji. Pomijaj prognozy kierunku ceny i ogólny sentyment ("BTC może rosnąć/spadać", "AI jest
+  w bańce") — to NIE są ciekawostki. Lepiej 2 mocne ciekawostki niż 5 pustych.
 - KLUCZOWE: każdą liczbę, poziom cenowy czy prognozę wypowiedzianą w filmie umieść \
 w poziomy_wg_kanalu. Liczby z filmu to zawsze opinia kanału, nigdy fakt rynkowy.
 - Cytaty bierz dosłownie z wypowiedzi; timestamp podaj jako [mm:ss] z momentu, gdy padają.

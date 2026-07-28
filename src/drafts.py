@@ -47,8 +47,14 @@ CEL — realna wartość, nie banał (NAJWAŻNIEJSZE):
   nigdy nie urywaj w połowie ("...tragedy of the commons" i koniec to błąd). Lepszy rozwinięty
   wątek, który naprawdę tłumaczy, niż krótki, który tylko zarysowuje temat.
 - Sekcja "ciekawostki" to twoja amunicja: nieoczywiste fakty, unikalne dane i mocne opinie
-  wyłuskane z filmów. Oprzyj wpis na najmocniejszej z nich — to ona ma dać czytelnikowi
-  "nie wiedziałem tego". Nie rozwadniaj jej ogólnikami.
+  wyłuskane z filmów. Zanim napiszesz, PRZEJRZYJ WSZYSTKIE i wybierz JEDNĄ najbardziej
+  zaskakującą/kontrariańską — tę, na którą czytelnik powie "kurwa, nie wiedziałem". Prowadź
+  wpis TĄ jedną, nawet jeśli jest bokiem do nagłówka tematu. NIE wybieraj najbezpieczniejszej,
+  najbardziej oczywistej ciekawostki na-temat tylko dlatego, że pasuje do tytułu — najmocniejszy
+  kąt prawie zawsze jest ten nieoczywisty (np. konkretna liczba, która przeczy narracji, albo
+  mechanizm, o którym nikt nie mówi). Resztę ciekawostek użyj co najwyżej jako wsparcie.
+- Ignoruj ciekawostki, które są tylko meta-opisem ("dyskusja o X", "analiza Y") bez konkretu —
+  to nie amunicja. Jeśli WSZYSTKIE są takie, temat jest pusty → pas.
 - Każdy draft ma dać czytelnikowi coś, czego sam nie zauważył: nieoczywisty kąt,
   mechanizm "jak to naprawdę działa", policzoną konsekwencję, ukryty powód, sprzeczność.
 - NIE streszczaj newsa ("X ogłosił Y"). Pokaż CO Z TEGO WYNIKA i czemu to ważne — jak
@@ -57,6 +63,9 @@ CEL — realna wartość, nie banał (NAJWAŻNIEJSZE):
 - Postaw własne zdanie i tezę. Sceptycyzm, konkret, wniosek. Zero suchego relacjonowania.
 - Jeśli temat to oczywistość bez kąta ("BTC spadł, na rynku strach") — zwróć pusty tekst
   (pas). Lepiej brak wpisu niż banał.
+- Sam kierunek ceny, prognoza wykresu, poziom wsparcia/oporu, "hossa czy bessa" albo ogólny
+  komentarz o ropie, dolarze czy AI nie wystarcza na wpis. Użyj tego wyłącznie jako tła do
+  konkretnego mechanizmu, decyzji, anomalii lub faktu, który jest osią tekstu.
 
 BRAMKA JAKOŚCI:
 - Zanim napiszesz, sprawdź czy teza wynika wprost z dostarczonych stanowisk kanałów. Jeśli nie,
